@@ -1,0 +1,17 @@
+<RCC>
+    <qresource prefix="/">
+        <!-- QML 文件 -->
+        <file>qml/main.qml</file>
+        <file>qml/LoginPage.qml</file>
+        <file>qml/MainPage.qml</file>
+        <file>qml/Styles.qml</file>
+        <file>qml/TopMenuBar.qml</file>
+        <file>qml/ToolbarCard.qml</file>
+        <file>qml/ResultListView.qml</file>
+        <file>qml/PaginationControl.qml</file>
+        <file>qml/DetailDialog.qml</file>
+        
+        <!-- 图片资源 -->
+        <file>images/login_background.png</file>
+    </qresource>
+</RCC>
