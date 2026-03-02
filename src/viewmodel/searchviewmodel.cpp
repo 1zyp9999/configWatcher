@@ -14,6 +14,8 @@
 #include <QSettings>
 #include <QJsonObject>
 #include <QCoreApplication>
+#include <QXmlStreamReader>
+#include <QXmlStreamWriter>
 
 SearchViewModel::SearchViewModel(QObject *parent) : QObject(parent)
 {
@@ -35,6 +37,14 @@ void SearchViewModel::setSearchText(const QString& text)
     if (m_searchText == text) return;
     m_searchText = text;
     emit searchTextChanged();
+    updateSearchResults();
+}
+
+void SearchViewModel::setFormatFilter(const QString& filter)
+{
+    if (m_formatFilter == filter) return;
+    m_formatFilter = filter;
+    emit formatFilterChanged();
     updateSearchResults();
 }
 
@@ -82,7 +92,7 @@ void SearchViewModel::updateSearchResults()
     // Prefer database-backed search if DB is initialized
     DatabaseManager* db = DatabaseManager::instance();
     if (db) {
-        QVariantList list = db->searchParameters(m_searchText, 0);
+        QVariantList list = db->searchParameters(m_searchText, 0, m_formatFilter);
         QList<QObject*> objResults;
         for (const QVariant& item : list) {
             // If DatabaseManager already returned QObject wrapped in QVariant, use it
@@ -543,6 +553,40 @@ QVariantList SearchViewModel::readConfigFile(const QString &filePath)
                 QVariantMap m; m["key"] = it.key(); m["value"] = it.value().toString(); out.append(m);
             }
         }
+    } else if (suffix == "xml") {
+        QXmlStreamReader xml(&f);
+        QStringList sectionStack;
+        while (!xml.atEnd() && !xml.hasError()) {
+            QXmlStreamReader::TokenType token = xml.readNext();
+            if (token == QXmlStreamReader::StartElement) {
+                QString elemName = xml.name().toString();
+                sectionStack.append(elemName);
+
+                // 属性作为键值对
+                QXmlStreamAttributes attrs = xml.attributes();
+                for (const QXmlStreamAttribute& attr : attrs) {
+                    QString prefix = sectionStack.join(".");
+                    QVariantMap m;
+                    m["key"] = prefix + "[@" + attr.name().toString() + "]";
+                    m["value"] = attr.value().toString();
+                    out.append(m);
+                }
+
+                // 文本内容
+                QString text = xml.readElementText(QXmlStreamReader::SkipChildElements).trimmed();
+                if (!text.isEmpty()) {
+                    QString key = sectionStack.join(".");
+                    QVariantMap m;
+                    m["key"] = key;
+                    m["value"] = text;
+                    out.append(m);
+                    // readElementText 已消费了 EndElement，需手动弹出
+                    if (!sectionStack.isEmpty()) sectionStack.removeLast();
+                }
+            } else if (token == QXmlStreamReader::EndElement) {
+                if (!sectionStack.isEmpty()) sectionStack.removeLast();
+            }
+        }
     }
     f.close();
     return out;
@@ -552,7 +596,7 @@ QString SearchViewModel::pickConfigFile()
 {
     QString home = QString::fromLocal8Bit(qgetenv("HOME"));
     QString dir = home + "/.config/Leichen";
-    QString file = QFileDialog::getOpenFileName(nullptr, QObject::tr("选择配置文件"), dir, QObject::tr("Config files (*.ini *.json)"));
+    QString file = QFileDialog::getOpenFileName(nullptr, QObject::tr("选择配置文件"), dir, QObject::tr("Config files (*.ini *.json *.xml)"));
     return file;
 }
 
@@ -603,6 +647,24 @@ bool SearchViewModel::writeConfigFile(const QString &filePath, const QVariantLis
         }
         QJsonDocument doc(obj);
         f.write(doc.toJson());
+    } else if (suffix == "xml") {
+        QXmlStreamWriter xml(&f);
+        xml.setAutoFormatting(true);
+        xml.writeStartDocument();
+        xml.writeStartElement("config");
+        for (const QVariant &v : entries) {
+            QVariantMap m = v.toMap();
+            QString key = m.value("key").toString();
+            QString val = m.value("value").toString();
+            // 跳过属性条目 ([@attr] 格式)，只写元素
+            if (key.contains("[@")) continue;
+            // 取最后一个点号后面的名称作为元素名
+            QString elemName = key.contains(".") ? key.mid(key.lastIndexOf('.') + 1) : key;
+            if (elemName.isEmpty()) elemName = "item";
+            xml.writeTextElement(elemName, val);
+        }
+        xml.writeEndElement(); // </config>
+        xml.writeEndDocument();
     }
 
     f.close();
@@ -696,4 +758,74 @@ QString SearchViewModel::getAiExplanation(const QString& query)
 {
     if (!m_aiService) return QString();
     return m_aiService->explainQuery(query);
+}
+
+// ========== 用户词典方法 ==========
+
+void SearchViewModel::addUserTerm(const QString& key, const QString& chinese, const QVariantList& synonyms)
+{
+    if (m_aiService) {
+        QStringList synList;
+        for (const QVariant& v : synonyms) {
+            synList.append(v.toString());
+        }
+        m_aiService->addUserTerm(key, chinese, synList);
+    }
+}
+
+void SearchViewModel::removeUserTerm(const QString& key)
+{
+    if (m_aiService) {
+        m_aiService->removeUserTerm(key);
+    }
+}
+
+QVariantList SearchViewModel::getUserTerms() const
+{
+    if (!m_aiService) return QVariantList();
+    return m_aiService->getUserTerms();
+}
+
+// ========== 搜索历史方法 ==========
+
+void SearchViewModel::recordSearch(const QString& query, int resultCount, bool selected)
+{
+    if (m_aiService && m_learningEnabled) {
+        m_aiService->recordSearchHistory(query, resultCount, selected);
+    }
+}
+
+QVariantList SearchViewModel::getSearchHistory(int limit)
+{
+    if (!m_aiService) return QVariantList();
+    return m_aiService->getSearchHistory(limit);
+}
+
+void SearchViewModel::clearSearchHistory()
+{
+    if (m_aiService) {
+        m_aiService->clearSearchHistory();
+    }
+}
+
+QVariantList SearchViewModel::getHotSearches(int limit)
+{
+    if (!m_aiService) return QVariantList();
+    return m_aiService->getHotSearches(limit);
+}
+
+void SearchViewModel::setLearningEnabled(bool enabled)
+{
+    if (m_learningEnabled != enabled) {
+        m_learningEnabled = enabled;
+        if (m_aiService) {
+            m_aiService->setLearningEnabled(enabled);
+        }
+        emit learningEnabledChanged(enabled);
+    }
+}
+
+bool SearchViewModel::isLearningEnabled() const
+{
+    return m_learningEnabled;
 }

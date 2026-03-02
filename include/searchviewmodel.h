@@ -30,6 +30,8 @@ class SearchViewModel : public QObject
     Q_PROPERTY(double aiConfidence READ aiConfidence NOTIFY aiConfidenceChanged)
     Q_PROPERTY(QVariantList aiSuggestions READ aiSuggestions NOTIFY aiSuggestionsChanged)
     Q_PROPERTY(QString aiExplanation READ aiExplanation NOTIFY aiExplanationChanged)
+    Q_PROPERTY(bool learningEnabled READ isLearningEnabled WRITE setLearningEnabled NOTIFY learningEnabledChanged)
+    Q_PROPERTY(QString formatFilter READ formatFilter WRITE setFormatFilter NOTIFY formatFilterChanged)
 
 public:
     explicit SearchViewModel(QObject *parent = nullptr);
@@ -56,6 +58,9 @@ public:
     double aiConfidence() const { return m_aiConfidence; }
     QVariantList aiSuggestions() const { return m_aiSuggestions; }
     QString aiExplanation() const { return m_aiExplanation; }
+    
+    QString formatFilter() const { return m_formatFilter; }
+    void setFormatFilter(const QString& filter);
 
     Q_INVOKABLE QString selectDirectory();
     Q_INVOKABLE void loadConfigFiles(const QStringList& filePaths);
@@ -74,6 +79,21 @@ public:
     Q_INVOKABLE void applyAiSuggestion(const QString& suggestion);
     Q_INVOKABLE void expandSearchWithAi(const QString& query);
     Q_INVOKABLE QString getAiExplanation(const QString& query);
+    
+    // 用户词典方法
+    Q_INVOKABLE void addUserTerm(const QString& key, const QString& chinese, const QVariantList& synonyms);
+    Q_INVOKABLE void removeUserTerm(const QString& key);
+    Q_INVOKABLE QVariantList getUserTerms() const;
+    
+    // 搜索历史方法
+    Q_INVOKABLE void recordSearch(const QString& query, int resultCount, bool selected);
+    Q_INVOKABLE QVariantList getSearchHistory(int limit);
+    Q_INVOKABLE void clearSearchHistory();
+    Q_INVOKABLE QVariantList getHotSearches(int limit);
+    
+    // 设置
+    Q_INVOKABLE void setLearningEnabled(bool enabled);
+    Q_INVOKABLE bool isLearningEnabled() const;
 
 public slots:
     void updateSearchResults();
@@ -92,6 +112,8 @@ signals:
     void aiConfidenceChanged();
     void aiSuggestionsChanged();
     void aiExplanationChanged();
+    void learningEnabledChanged(bool enabled);
+    void formatFilterChanged();
 
 private:
     QString m_searchText;
@@ -113,6 +135,8 @@ private:
     double m_aiConfidence = 0.0;
     QVariantList m_aiSuggestions;
     QString m_aiExplanation;
+    bool m_learningEnabled = true;
+    QString m_formatFilter;  // 文件类型过滤: "ini", "json", "xml", "" (all)
 };
 
 #endif // SEARCHVIEWMODEL_H

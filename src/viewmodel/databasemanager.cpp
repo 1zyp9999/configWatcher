@@ -9,6 +9,10 @@
 #include <QRegularExpression>
 #include <QSqlRecord>
 #include <QDateTime>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QXmlStreamReader>
 
 DatabaseManager* DatabaseManager::s_instance = nullptr;
 
@@ -290,6 +294,163 @@ bool DatabaseManager::importIniFile(const QString& filePath, const QString& devi
     return true;
 }
 
+// ---- JSON 文件导入 ----
+bool DatabaseManager::importJsonFile(const QString& filePath, const QString& device)
+{
+    if (!m_db.isOpen()) return false;
+    QFile f(filePath);
+    if (!f.exists()) { qWarning() << "json not found:" << filePath; return false; }
+    if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) { qWarning() << "open failed:" << filePath; return false; }
+
+    QByteArray data = f.readAll();
+    f.close();
+
+    QJsonParseError err;
+    QJsonDocument doc = QJsonDocument::fromJson(data, &err);
+    if (err.error != QJsonParseError::NoError) {
+        qWarning() << "JSON parse error:" << err.errorString() << filePath;
+        return false;
+    }
+
+    QSqlQuery tx(m_db);
+    tx.exec("BEGIN");
+
+    int fileId = ensureFile(filePath, QStringLiteral("json"));
+    if (fileId < 0) return false;
+
+    // 递归辅助 lambda：将 JSON 对象展平写入 DB
+    std::function<void(const QJsonObject&, const QString&, const QString&)> importObj;
+    importObj = [&](const QJsonObject& obj, const QString& sectionName, const QString& dev) {
+        int sectionId = ensureSection(fileId, sectionName, -1);
+        if (sectionId < 0) return;
+        for (auto it = obj.constBegin(); it != obj.constEnd(); ++it) {
+            QString key = it.key();
+            QJsonValue val = it.value();
+            if (val.isObject()) {
+                // 嵌套对象作为子 section
+                QString childSection = sectionName.isEmpty() ? key : (sectionName + "." + key);
+                importObj(val.toObject(), childSection, dev);
+            } else if (val.isArray()) {
+                QJsonArray arr = val.toArray();
+                for (int i = 0; i < arr.size(); ++i) {
+                    if (arr[i].isObject()) {
+                        QString childSection = sectionName.isEmpty() ? key : (sectionName + "." + key);
+                        int childSectionId = ensureSection(fileId, childSection, i);
+                        if (childSectionId < 0) continue;
+                        QJsonObject itemObj = arr[i].toObject();
+                        for (auto jt = itemObj.constBegin(); jt != itemObj.constEnd(); ++jt) {
+                            QString rawVal = jt.value().isString() ? jt.value().toString() : QString::number(jt.value().toDouble());
+                            upsertParameter(fileId, childSectionId, jt.key(), rawVal, "string", 0, 0, dev, jt.key(), QString());
+                        }
+                    } else {
+                        QString rawVal = arr[i].isString() ? arr[i].toString() : QString::number(arr[i].toDouble());
+                        upsertParameter(fileId, sectionId, key + "[" + QString::number(i) + "]", rawVal, "string", 0, 0, dev, key, QString());
+                    }
+                }
+            } else {
+                QString rawVal = val.isString() ? val.toString() : (val.isBool() ? (val.toBool() ? "true" : "false") : QString::number(val.toDouble()));
+                QString vtype = val.isDouble() ? "float" : (val.isBool() ? "bool" : "string");
+                double n1 = val.isDouble() ? val.toDouble() : 0;
+                upsertParameter(fileId, sectionId, key, rawVal, vtype, n1, 0, dev, key, QString());
+            }
+        }
+    };
+
+    if (doc.isObject()) {
+        importObj(doc.object(), QStringLiteral("__root__"), device);
+    } else if (doc.isArray()) {
+        QJsonArray arr = doc.array();
+        for (int i = 0; i < arr.size(); ++i) {
+            if (arr[i].isObject()) {
+                importObj(arr[i].toObject(), QStringLiteral("__root__"), device);
+            }
+        }
+    }
+
+    QSqlQuery commit(m_db);
+    commit.exec("COMMIT");
+    return true;
+}
+
+// ---- XML 文件导入 ----
+bool DatabaseManager::importXmlFile(const QString& filePath, const QString& device)
+{
+    if (!m_db.isOpen()) return false;
+    QFile f(filePath);
+    if (!f.exists()) { qWarning() << "xml not found:" << filePath; return false; }
+    if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) { qWarning() << "open failed:" << filePath; return false; }
+
+    QSqlQuery tx(m_db);
+    tx.exec("BEGIN");
+
+    int fileId = ensureFile(filePath, QStringLiteral("xml"));
+    if (fileId < 0) { f.close(); return false; }
+
+    QXmlStreamReader xml(&f);
+    QStringList sectionStack;
+    int defaultSectionId = ensureSection(fileId, QStringLiteral("__root__"), -1);
+
+    while (!xml.atEnd() && !xml.hasError()) {
+        QXmlStreamReader::TokenType token = xml.readNext();
+        if (token == QXmlStreamReader::StartElement) {
+            QString elemName = xml.name().toString();
+            sectionStack.append(elemName);
+
+            // 将元素的属性作为参数导入
+            QXmlStreamAttributes attrs = xml.attributes();
+            if (!attrs.isEmpty()) {
+                QString sectionName = sectionStack.join(".");
+                int sectionId = ensureSection(fileId, sectionName, -1);
+                if (sectionId < 0) sectionId = defaultSectionId;
+                for (const QXmlStreamAttribute& attr : attrs) {
+                    QString key = attr.name().toString();
+                    QString val = attr.value().toString();
+                    upsertParameter(fileId, sectionId, key, val, "string", 0, 0, device, key, QString());
+                }
+            }
+
+            // 如果元素只包含文本内容，也作为参数导入
+            QString text = xml.readElementText(QXmlStreamReader::SkipChildElements).trimmed();
+            if (!text.isEmpty()) {
+                QString sectionName;
+                // 用父元素路径作为 section
+                if (sectionStack.size() > 1) {
+                    QStringList parentPath = sectionStack;
+                    parentPath.removeLast();
+                    sectionName = parentPath.join(".");
+                } else {
+                    sectionName = "__root__";
+                }
+                int sectionId = ensureSection(fileId, sectionName, -1);
+                if (sectionId < 0) sectionId = defaultSectionId;
+
+                double n1 = 0;
+                QString vtype = "string";
+                bool okInt = false;
+                int iv = text.toInt(&okInt);
+                if (okInt) { vtype = "int"; n1 = iv; }
+                else {
+                    bool okDouble = false;
+                    double dv = text.toDouble(&okDouble);
+                    if (okDouble) { vtype = "float"; n1 = dv; }
+                }
+                upsertParameter(fileId, sectionId, elemName, text, vtype, n1, 0, device, elemName, QString());
+            }
+        } else if (token == QXmlStreamReader::EndElement) {
+            if (!sectionStack.isEmpty()) sectionStack.removeLast();
+        }
+    }
+
+    if (xml.hasError()) {
+        qWarning() << "XML parse error:" << xml.errorString() << filePath;
+    }
+
+    f.close();
+    QSqlQuery commit(m_db);
+    commit.exec("COMMIT");
+    return true;
+}
+
 bool DatabaseManager::saveConfigEntry(const QString& key, const QString& value, const QString& filePath, const QString& format, const QString& chineseKey)
 {
     if (!m_db.isOpen()) return false;
@@ -349,21 +510,26 @@ bool DatabaseManager::applyTranslationsToParameters()
     return ok;
 }
 
-QVariantList DatabaseManager::searchParameters(const QString& query, int mode)
+QVariantList DatabaseManager::searchParameters(const QString& query, int mode, const QString& formatFilter)
 {
     Q_UNUSED(mode);
     QVariantList out;
     if (!m_db.isOpen()) return out;
     QSqlQuery q(m_db);
 
+    // 构建格式过滤条件
+    bool hasFormatFilter = !formatFilter.isEmpty() && formatFilter.toLower() != "all";
+    QString formatCondition;
+    if (hasFormatFilter) {
+        formatCondition = " AND f.format = :fmt";
+    }
+
     if (m_useFts5) {
         QString qstr = query.trimmed();
         if (qstr.isEmpty()) return out;
 
         // 对输入进行分词，并对每个 token 使用前缀匹配（token*），以便前缀搜索生效。
-        // 例如输入 "cam" -> "cam*" 可以匹配 "camera"。
         QStringList tokens = qstr.split(QRegExp("\\s+"), QString::SkipEmptyParts);
-        // 如果 token 很短（例如 1-2 个字符），直接回退到 LIKE 查询以获得更宽松的匹配
         bool useLikeFallback = false;
         for (const QString &t : tokens) {
             if (t.length() < 3) { useLikeFallback = true; break; }
@@ -373,11 +539,11 @@ QVariantList DatabaseManager::searchParameters(const QString& query, int mode)
             for (int i = 0; i < tokens.size(); ++i) tokens[i] = tokens[i] + "*";
             QString match = tokens.join(' ');
 
-            QString sql = "SELECT p.key, p.raw_value, p.chinese_name, p.device, f.path, f.format FROM parameters p JOIN files f ON p.file_id=f.id WHERE p.id IN (SELECT rowid FROM parameters_fts WHERE parameters_fts MATCH :m) LIMIT 500";
+            QString sql = "SELECT p.key, p.raw_value, p.chinese_name, p.device, f.path, f.format FROM parameters p JOIN files f ON p.file_id=f.id WHERE p.id IN (SELECT rowid FROM parameters_fts WHERE parameters_fts MATCH :m)" + formatCondition + " LIMIT 500";
             q.prepare(sql);
             q.bindValue(":m", match);
+            if (hasFormatFilter) q.bindValue(":fmt", formatFilter.toLower());
             if (!q.exec()) {
-                // 若执行 FTS 查询失败，则回退到 LIKE
                 useLikeFallback = true;
             } else {
                 bool found = false;
@@ -392,19 +558,18 @@ QVariantList DatabaseManager::searchParameters(const QString& query, int mode)
                     m["format"] = q.value(5).toString();
                     out.append(m);
                 }
-                if (found) return out; // 如果 FTS 有结果，则直接返回
-                // 否则回退到 LIKE
+                if (found) return out;
                 useLikeFallback = true;
             }
         }
-
-        // 回退到 LIKE 查询（覆盖短 token 或 FTS 未返回结果的情况）
     }
 
-    // 原有的 LIKE 模糊匹配回退逻辑
+    // LIKE 模糊匹配回退逻辑
     QString like = QString("%") + query + "%";
-    q.prepare("SELECT p.key, p.raw_value, p.chinese_name, p.device, f.path, f.format FROM parameters p JOIN files f ON p.file_id=f.id WHERE p.key LIKE :l OR p.raw_value LIKE :l OR p.chinese_name LIKE :l OR p.device LIKE :l LIMIT 500");
+    QString sql = "SELECT p.key, p.raw_value, p.chinese_name, p.device, f.path, f.format FROM parameters p JOIN files f ON p.file_id=f.id WHERE (p.key LIKE :l OR p.raw_value LIKE :l OR p.chinese_name LIKE :l OR p.device LIKE :l)" + formatCondition + " LIMIT 500";
+    q.prepare(sql);
     q.bindValue(":l", like);
+    if (hasFormatFilter) q.bindValue(":fmt", formatFilter.toLower());
     if (!q.exec()) return out;
     while (q.next()) {
         QVariantMap m;

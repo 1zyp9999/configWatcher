@@ -40,7 +40,7 @@ DISTNAME      = ConfigWatcher1.0.0
 DISTDIR = /home/jack/ConfigWatcher/obj/ConfigWatcher1.0.0
 LINK          = g++
 LFLAGS        = -Wl,-O1 -Wl,-rpath-link,/usr/lib/x86_64-linux-gnu
-LIBS          = $(SUBLIBS) /usr/lib/x86_64-linux-gnu/libQt5QuickControls2.so /usr/lib/x86_64-linux-gnu/libQt5Quick.so /usr/lib/x86_64-linux-gnu/libQt5Widgets.so /usr/lib/x86_64-linux-gnu/libQt5Gui.so /usr/lib/x86_64-linux-gnu/libQt5QmlModels.so /usr/lib/x86_64-linux-gnu/libQt5Qml.so /usr/lib/x86_64-linux-gnu/libQt5Network.so /usr/lib/x86_64-linux-gnu/libQt5Concurrent.so /usr/lib/x86_64-linux-gnu/libQt5Sql.so /usr/lib/x86_64-linux-gnu/libQt5Core.so -lGL -lpthread   
+LIBS          = $(SUBLIBS) -lX11 -lxcb /usr/lib/x86_64-linux-gnu/libQt5QuickControls2.so /usr/lib/x86_64-linux-gnu/libQt5Quick.so /usr/lib/x86_64-linux-gnu/libQt5Widgets.so /usr/lib/x86_64-linux-gnu/libQt5Gui.so /usr/lib/x86_64-linux-gnu/libQt5QmlModels.so /usr/lib/x86_64-linux-gnu/libQt5Qml.so /usr/lib/x86_64-linux-gnu/libQt5Network.so /usr/lib/x86_64-linux-gnu/libQt5Concurrent.so /usr/lib/x86_64-linux-gnu/libQt5Sql.so /usr/lib/x86_64-linux-gnu/libQt5Core.so -lGL -lpthread   
 AR            = ar cqs
 RANLIB        = 
 SED           = sed
@@ -57,26 +57,30 @@ SOURCES       = main.cpp \
 		src/viewmodel/loginviewmodel.cpp \
 		src/viewmodel/searchviewmodel.cpp \
 		src/viewmodel/databasemanager.cpp \
-		src/aiservice.cpp rcc/qrc_qml.cpp \
+		src/aiservice.cpp \
+		src/globalhotkey.cpp rcc/qrc_qml.cpp \
 		moc/moc_configentry.cpp \
 		moc/moc_configparser.cpp \
 		moc/moc_loginviewmodel.cpp \
 		moc/moc_searchviewmodel.cpp \
 		moc/moc_databasemanager.cpp \
-		moc/moc_aiservice.cpp
+		moc/moc_aiservice.cpp \
+		moc/moc_globalhotkey.cpp
 OBJECTS       = obj/main.o \
 		obj/configparser.o \
 		obj/loginviewmodel.o \
 		obj/searchviewmodel.o \
 		obj/databasemanager.o \
 		obj/aiservice.o \
+		obj/globalhotkey.o \
 		obj/qrc_qml.o \
 		obj/moc_configentry.o \
 		obj/moc_configparser.o \
 		obj/moc_loginviewmodel.o \
 		obj/moc_searchviewmodel.o \
 		obj/moc_databasemanager.o \
-		obj/moc_aiservice.o
+		obj/moc_aiservice.o \
+		obj/moc_globalhotkey.o
 DIST          = /usr/lib/x86_64-linux-gnu/qt5/mkspecs/features/spec_pre.prf \
 		/usr/lib/x86_64-linux-gnu/qt5/mkspecs/common/unix.conf \
 		/usr/lib/x86_64-linux-gnu/qt5/mkspecs/common/linux.conf \
@@ -170,12 +174,14 @@ DIST          = /usr/lib/x86_64-linux-gnu/qt5/mkspecs/features/spec_pre.prf \
 		src/viewmodel/loginviewmodel.h \
 		include/searchviewmodel.h \
 		include/databasemanager.h \
-		include/aiservice.h main.cpp \
+		include/aiservice.h \
+		include/globalhotkey.h main.cpp \
 		src/model/configparser.cpp \
 		src/viewmodel/loginviewmodel.cpp \
 		src/viewmodel/searchviewmodel.cpp \
 		src/viewmodel/databasemanager.cpp \
-		src/aiservice.cpp
+		src/aiservice.cpp \
+		src/globalhotkey.cpp
 QMAKE_TARGET  = ConfigWatcher
 DESTDIR       = bin/
 TARGET        = bin/ConfigWatcher
@@ -385,8 +391,8 @@ distdir: FORCE
 	$(COPY_FILE) --parents $(DIST) $(DISTDIR)/
 	$(COPY_FILE) --parents res/qml.qrc $(DISTDIR)/
 	$(COPY_FILE) --parents /usr/lib/x86_64-linux-gnu/qt5/mkspecs/features/data/dummy.cpp $(DISTDIR)/
-	$(COPY_FILE) --parents include/configentry.h src/model/configparser.h src/viewmodel/loginviewmodel.h include/searchviewmodel.h include/databasemanager.h include/aiservice.h $(DISTDIR)/
-	$(COPY_FILE) --parents main.cpp src/model/configparser.cpp src/viewmodel/loginviewmodel.cpp src/viewmodel/searchviewmodel.cpp src/viewmodel/databasemanager.cpp src/aiservice.cpp $(DISTDIR)/
+	$(COPY_FILE) --parents include/configentry.h src/model/configparser.h src/viewmodel/loginviewmodel.h include/searchviewmodel.h include/databasemanager.h include/aiservice.h include/globalhotkey.h $(DISTDIR)/
+	$(COPY_FILE) --parents main.cpp src/model/configparser.cpp src/viewmodel/loginviewmodel.cpp src/viewmodel/searchviewmodel.cpp src/viewmodel/databasemanager.cpp src/aiservice.cpp src/globalhotkey.cpp $(DISTDIR)/
 
 
 clean: compiler_clean 
@@ -417,6 +423,7 @@ rcc/qrc_qml.cpp: res/qml.qrc \
 		/usr/lib/qt5/bin/rcc \
 		res/qml/MainPage.qml \
 		res/qml/LoginPage.qml \
+		res/qml/MiniMode.qml \
 		res/qml/main.qml \
 		res/images/login_background.png
 	/usr/lib/qt5/bin/rcc -name qml res/qml.qrc -o rcc/qrc_qml.cpp
@@ -427,9 +434,9 @@ compiler_moc_predefs_clean:
 moc/moc_predefs.h: /usr/lib/x86_64-linux-gnu/qt5/mkspecs/features/data/dummy.cpp
 	g++ -pipe -O2 -std=gnu++11 -Wall -Wextra -dM -E -o moc/moc_predefs.h /usr/lib/x86_64-linux-gnu/qt5/mkspecs/features/data/dummy.cpp
 
-compiler_moc_header_make_all: moc/moc_configentry.cpp moc/moc_configparser.cpp moc/moc_loginviewmodel.cpp moc/moc_searchviewmodel.cpp moc/moc_databasemanager.cpp moc/moc_aiservice.cpp
+compiler_moc_header_make_all: moc/moc_configentry.cpp moc/moc_configparser.cpp moc/moc_loginviewmodel.cpp moc/moc_searchviewmodel.cpp moc/moc_databasemanager.cpp moc/moc_aiservice.cpp moc/moc_globalhotkey.cpp
 compiler_moc_header_clean:
-	-$(DEL_FILE) moc/moc_configentry.cpp moc/moc_configparser.cpp moc/moc_loginviewmodel.cpp moc/moc_searchviewmodel.cpp moc/moc_databasemanager.cpp moc/moc_aiservice.cpp
+	-$(DEL_FILE) moc/moc_configentry.cpp moc/moc_configparser.cpp moc/moc_loginviewmodel.cpp moc/moc_searchviewmodel.cpp moc/moc_databasemanager.cpp moc/moc_aiservice.cpp moc/moc_globalhotkey.cpp
 moc/moc_configentry.cpp: include/configentry.h \
 		moc/moc_predefs.h \
 		/usr/lib/qt5/bin/moc
@@ -465,6 +472,11 @@ moc/moc_aiservice.cpp: include/aiservice.h \
 		/usr/lib/qt5/bin/moc
 	/usr/lib/qt5/bin/moc $(DEFINES) --include /home/jack/ConfigWatcher/moc/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++ -I/home/jack/ConfigWatcher -I/home/jack/ConfigWatcher/include -I/home/jack/ConfigWatcher/src/model -I/home/jack/ConfigWatcher/src/viewmodel -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtQuickControls2 -I/usr/include/x86_64-linux-gnu/qt5/QtQuick -I/usr/include/x86_64-linux-gnu/qt5/QtWidgets -I/usr/include/x86_64-linux-gnu/qt5/QtGui -I/usr/include/x86_64-linux-gnu/qt5/QtQmlModels -I/usr/include/x86_64-linux-gnu/qt5/QtQml -I/usr/include/x86_64-linux-gnu/qt5/QtNetwork -I/usr/include/x86_64-linux-gnu/qt5/QtConcurrent -I/usr/include/x86_64-linux-gnu/qt5/QtSql -I/usr/include/x86_64-linux-gnu/qt5/QtCore -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include include/aiservice.h -o moc/moc_aiservice.cpp
 
+moc/moc_globalhotkey.cpp: include/globalhotkey.h \
+		moc/moc_predefs.h \
+		/usr/lib/qt5/bin/moc
+	/usr/lib/qt5/bin/moc $(DEFINES) --include /home/jack/ConfigWatcher/moc/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++ -I/home/jack/ConfigWatcher -I/home/jack/ConfigWatcher/include -I/home/jack/ConfigWatcher/src/model -I/home/jack/ConfigWatcher/src/viewmodel -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtQuickControls2 -I/usr/include/x86_64-linux-gnu/qt5/QtQuick -I/usr/include/x86_64-linux-gnu/qt5/QtWidgets -I/usr/include/x86_64-linux-gnu/qt5/QtGui -I/usr/include/x86_64-linux-gnu/qt5/QtQmlModels -I/usr/include/x86_64-linux-gnu/qt5/QtQml -I/usr/include/x86_64-linux-gnu/qt5/QtNetwork -I/usr/include/x86_64-linux-gnu/qt5/QtConcurrent -I/usr/include/x86_64-linux-gnu/qt5/QtSql -I/usr/include/x86_64-linux-gnu/qt5/QtCore -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include include/globalhotkey.h -o moc/moc_globalhotkey.cpp
+
 compiler_moc_objc_header_make_all:
 compiler_moc_objc_header_clean:
 compiler_moc_source_make_all:
@@ -486,7 +498,8 @@ obj/main.o: main.cpp include/databasemanager.h \
 		include/searchviewmodel.h \
 		src/model/configparser.h \
 		include/configentry.h \
-		include/aiservice.h
+		include/aiservice.h \
+		include/globalhotkey.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/main.o main.cpp
 
 obj/configparser.o: src/model/configparser.cpp src/model/configparser.h \
@@ -509,6 +522,9 @@ obj/databasemanager.o: src/viewmodel/databasemanager.cpp include/databasemanager
 obj/aiservice.o: src/aiservice.cpp include/aiservice.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/aiservice.o src/aiservice.cpp
 
+obj/globalhotkey.o: src/globalhotkey.cpp include/globalhotkey.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/globalhotkey.o src/globalhotkey.cpp
+
 obj/qrc_qml.o: rcc/qrc_qml.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/qrc_qml.o rcc/qrc_qml.cpp
 
@@ -529,6 +545,9 @@ obj/moc_databasemanager.o: moc/moc_databasemanager.cpp
 
 obj/moc_aiservice.o: moc/moc_aiservice.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/moc_aiservice.o moc/moc_aiservice.cpp
+
+obj/moc_globalhotkey.o: moc/moc_globalhotkey.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/moc_globalhotkey.o moc/moc_globalhotkey.cpp
 
 ####### Install
 

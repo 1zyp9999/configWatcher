@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import QtQuick.Window 2.15
 import ConfigWatcher 1.0
 
 Item {
@@ -21,6 +22,9 @@ Item {
     signal openFileRequested(string filePath)
     ListModel { id: settingsModel }
     ListModel { id: fileModel }
+    ListModel { id: userDictModel }
+    ListModel { id: historyModel }
+    ListModel { id: hotSearchModel }
 
     // ===== 深色配色方案（与登录界面统一） =====
     property color primaryColor: "#2563EB"        // 主色：蓝
@@ -181,6 +185,29 @@ Item {
                         }
                     }
 
+                    // AI 管理菜单
+                    Rectangle {
+                        id: aiMenuBtnRect
+                        color: "transparent"
+                        radius: 8
+                        Layout.preferredWidth: aiMenuText.paintedWidth + 24
+                        Layout.preferredHeight: 36
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: mainPage.aiManagementVisible = true
+                            onEntered: aiMenuBtnRect.color = surfaceColor
+                            onExited: aiMenuBtnRect.color = "transparent"
+                        }
+                        Text {
+                            id: aiMenuText
+                            text: qsTr("AI 管理")
+                            anchors.centerIn: parent
+                            color: searchVM.aiEnabled ? "#60a5fa" : textSecondary
+                            font.pointSize: 13
+                        }
+                    }
+
                     Rectangle {
                         id: fileMenuBtnRect
                         color: "transparent"
@@ -215,6 +242,36 @@ Item {
                     }
 
                     Item { Layout.fillWidth: true }
+
+                    // 精简模式按钮
+                    Rectangle {
+                        id: miniModeBtnRect
+                        color: "transparent"
+                        radius: 8
+                        Layout.preferredWidth: 36
+                        Layout.preferredHeight: 36
+                        ToolTip { visible: miniModeMouse.containsMouse; text: "切换精简模式 (Ctrl+Alt+M)"; timeout: 2000 }
+                        MouseArea {
+                            id: miniModeMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                // 通过根窗口发出信号
+                                var win = mainPage.Window.window
+                                if (win && typeof win.requestMiniMode === 'function') {
+                                    win.requestMiniMode()
+                                }
+                            }
+                            onEntered: miniModeBtnRect.color = surfaceColor
+                            onExited: miniModeBtnRect.color = "transparent"
+                        }
+                        Text {
+                            text: "🔽"
+                            anchors.centerIn: parent
+                            font.pointSize: 14
+                        }
+                    }
 
                     // 右侧版本标签
                     Text {
@@ -263,15 +320,17 @@ Item {
                             width: 34; height: 34; radius: 8
                             color: "#1e293b"
                             border.color: "#fbbf24"; border.width: 1
+                            ToolTip { visible: lightMouse.containsMouse; text: "光源配置"; timeout: 1500 }
                             MouseArea {
+                                id: lightMouse
                                 anchors.fill: parent
                                 cursorShape: Qt.PointingHandCursor
                                 hoverEnabled: true
-                                onClicked: searchField.text = "light"
+                                onClicked: { searchField.text = "light"; if (searchVM.aiEnabled) searchVM.analyzeSearchQuery("light"); }
                                 onEntered: parent.color = "#334155"
                                 onExited: parent.color = "#1e293b"
                             }
-                            Text { text: "\u2600"; anchors.centerIn: parent; color: "#fbbf24"; font.pointSize: 15 }
+                            Text { text: "💡"; anchors.centerIn: parent; font.pointSize: 16 }
                         }
 
                         // 相机预设
@@ -280,15 +339,93 @@ Item {
                             width: 34; height: 34; radius: 8
                             color: "#1e293b"
                             border.color: "#3b82f6"; border.width: 1
+                            ToolTip { visible: cameraMouse.containsMouse; text: "相机配置"; timeout: 1500 }
                             MouseArea {
+                                id: cameraMouse
                                 anchors.fill: parent
                                 cursorShape: Qt.PointingHandCursor
                                 hoverEnabled: true
-                                onClicked: searchField.text = "camera"
+                                onClicked: { searchField.text = "camera"; if (searchVM.aiEnabled) searchVM.analyzeSearchQuery("camera"); }
                                 onEntered: parent.color = "#334155"
                                 onExited: parent.color = "#1e293b"
                             }
-                            Text { text: "\uD83D\uDCF7"; anchors.centerIn: parent; color: "#3b82f6"; font.pointSize: 13 }
+                            Text { text: "📷"; anchors.centerIn: parent; font.pointSize: 14 }
+                        }
+
+                        // 投影仪预设
+                        Rectangle {
+                            id: projectorIconBtn
+                            width: 34; height: 34; radius: 8
+                            color: "#1e293b"
+                            border.color: "#a855f7"; border.width: 1
+                            ToolTip { visible: projectorMouse.containsMouse; text: "投影仪配置"; timeout: 1500 }
+                            MouseArea {
+                                id: projectorMouse
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                hoverEnabled: true
+                                onClicked: { searchField.text = "projector"; if (searchVM.aiEnabled) searchVM.analyzeSearchQuery("projector"); }
+                                onEntered: parent.color = "#334155"
+                                onExited: parent.color = "#1e293b"
+                            }
+                            Text { text: "📽️"; anchors.centerIn: parent; font.pointSize: 14 }
+                        }
+
+                        // 标定预设
+                        Rectangle {
+                            id: calibrationIconBtn
+                            width: 34; height: 34; radius: 8
+                            color: "#1e293b"
+                            border.color: "#10b981"; border.width: 1
+                            ToolTip { visible: calibrationMouse.containsMouse; text: "标定配置"; timeout: 1500 }
+                            MouseArea {
+                                id: calibrationMouse
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                hoverEnabled: true
+                                onClicked: { searchField.text = "calibration"; if (searchVM.aiEnabled) searchVM.analyzeSearchQuery("calibration"); }
+                                onEntered: parent.color = "#334155"
+                                onExited: parent.color = "#1e293b"
+                            }
+                            Text { text: "🎯"; anchors.centerIn: parent; font.pointSize: 14 }
+                        }
+
+                        // 硬件预设
+                        Rectangle {
+                            id: hardwareIconBtn
+                            width: 34; height: 34; radius: 8
+                            color: "#1e293b"
+                            border.color: "#f97316"; border.width: 1
+                            ToolTip { visible: hardwareMouse.containsMouse; text: "硬件配置"; timeout: 1500 }
+                            MouseArea {
+                                id: hardwareMouse
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                hoverEnabled: true
+                                onClicked: { searchField.text = "hardware"; if (searchVM.aiEnabled) searchVM.analyzeSearchQuery("hardware"); }
+                                onEntered: parent.color = "#334155"
+                                onExited: parent.color = "#1e293b"
+                            }
+                            Text { text: "🔧"; anchors.centerIn: parent; font.pointSize: 14 }
+                        }
+
+                        // 用户预设
+                        Rectangle {
+                            id: userIconBtn
+                            width: 34; height: 34; radius: 8
+                            color: "#1e293b"
+                            border.color: "#ec4899"; border.width: 1
+                            ToolTip { visible: userMouse.containsMouse; text: "用户配置"; timeout: 1500 }
+                            MouseArea {
+                                id: userMouse
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                hoverEnabled: true
+                                onClicked: { searchField.text = "user"; if (searchVM.aiEnabled) searchVM.analyzeSearchQuery("user"); }
+                                onEntered: parent.color = "#334155"
+                                onExited: parent.color = "#1e293b"
+                            }
+                            Text { text: "👤"; anchors.centerIn: parent; font.pointSize: 14 }
                         }
 
                         Rectangle { width: 1; height: 24; color: borderColor }
@@ -320,17 +457,6 @@ Item {
                             onCurrentIndexChanged: loadConfigByType()
                         }
 
-                        Text { text: qsTr("后缀"); color: textSecondary; font.pointSize: 11 }
-                        ComboBox {
-                            id: suffixCombo
-                            model: ["ini", "xml", "ccf"]
-                            Layout.preferredWidth: 72
-                            font.pointSize: 12
-                            currentIndex: 0
-                            background: Rectangle { color: surfaceColor; radius: 8; border.color: borderColor; border.width: 1 }
-                            contentItem: Text { text: suffixCombo.currentText; color: textPrimary; verticalAlignment: Text.AlignVCenter; anchors.left: parent.left; anchors.leftMargin: 10 }
-                        }
-
                         Rectangle { width: 1; height: 24; color: borderColor }
 
                         Text { text: qsTr("模式"); color: textSecondary; font.pointSize: 11 }
@@ -345,6 +471,23 @@ Item {
                             onCurrentIndexChanged: {
                                 searchVM.searchMode = currentIndex
                                 searchVM.updateSearchResults()
+                            }
+                        }
+
+                        Rectangle { width: 1; height: 24; color: borderColor }
+
+                        Text { text: qsTr("格式"); color: textSecondary; font.pointSize: 11 }
+                        ComboBox {
+                            id: formatFilterCombo
+                            model: ["全部", "ini", "json", "xml"]
+                            Layout.preferredWidth: 90
+                            font.pointSize: 12
+                            currentIndex: 0
+                            background: Rectangle { color: surfaceColor; radius: 8; border.color: borderColor; border.width: 1 }
+                            contentItem: Text { text: formatFilterCombo.currentText; color: textPrimary; verticalAlignment: Text.AlignVCenter; anchors.left: parent.left; anchors.leftMargin: 10 }
+                            onCurrentIndexChanged: {
+                                var val = formatFilterCombo.currentText
+                                searchVM.formatFilter = (val === "全部") ? "" : val
                             }
                         }
 
@@ -406,6 +549,10 @@ Item {
                                 searchVM.searchText = searchField.text
                                 if (searchVM.aiEnabled) searchVM.analyzeSearchQuery(searchField.text)
                                 searchVM.updateSearchResults()
+                                // 记录搜索历史
+                                if (searchVM.learningEnabled && searchField.text.trim() !== "") {
+                                    searchVM.recordSearch(searchField.text, searchVM.searchResults ? searchVM.searchResults.length : 0, false)
+                                }
                             }
                             background: Rectangle {
                                 radius: 10
@@ -497,32 +644,24 @@ Item {
                     anchors.bottomMargin: 12
                     spacing: 10
 
-                    // 第一行：AI 标识和意图
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 8
 
-                        // AI 标识
                         Rectangle {
                             width: 28; height: 28; radius: 6
                             color: "#1e3a5f"
                             border.color: "#60a5fa"
                             border.width: 1
-                            Text {
-                                text: "✨"
-                                anchors.centerIn: parent
-                                font.pointSize: 14
-                            }
+                            Text { text: "✨"; anchors.centerIn: parent; font.pointSize: 14 }
                         }
 
-                        // 意图标签
                         Rectangle {
                             color: searchVM.aiIntent === "search_key" ? "#1e3a5f" :
                                    searchVM.aiIntent === "search_value" ? "#14332a" :
                                    searchVM.aiIntent === "search_chinese" ? "#2d1f3d" :
                                    searchVM.aiIntent === "navigate" ? "#1f3a2d" : "#1e293b"
-                            radius: 6
-                            height: 28
+                            radius: 6; height: 28
                             Layout.preferredWidth: intentText.paintedWidth + 16
                             visible: intentText.text !== ""
 
@@ -544,7 +683,6 @@ Item {
                             }
                         }
 
-                        // 置信度指示器
                         Rectangle {
                             color: "transparent"
                             Layout.fillWidth: true
@@ -554,13 +692,8 @@ Item {
                                 anchors.right: parent.right
                                 spacing: 6
 
-                                Text {
-                                    text: "置信度："
-                                    color: textMuted
-                                    font.pointSize: 10
-                                }
+                                Text { text: "置信度："; color: textMuted; font.pointSize: 10 }
 
-                                // 进度条样式的置信度
                                 Rectangle {
                                     width: 100; height: 8; radius: 4
                                     color: "#1e293b"
@@ -586,7 +719,6 @@ Item {
                         }
                     }
 
-                    // 第二行：AI 解释
                     Text {
                         text: searchVM.aiExplanation || ""
                         color: textSecondary
@@ -596,7 +728,6 @@ Item {
                         visible: text !== ""
                     }
 
-                    // 第三行：AI 建议
                     Rectangle {
                         color: "transparent"
                         Layout.fillWidth: true
@@ -642,7 +773,6 @@ Item {
                                         font.pointSize: 11
                                     }
 
-                                    // 建议类型提示
                                     Rectangle {
                                         anchors.left: parent.right
                                         anchors.leftMargin: 2
@@ -650,7 +780,7 @@ Item {
                                         width: 6; height: 6; radius: 3
                                         color: modelData.type === "exact" ? primaryColor :
                                                modelData.type === "synonym" ? "#10B981" : "#8b5cf6"
-                                        visible: index === 0  // 只显示一个图例
+                                        visible: index === 0
                                     }
                                 }
                             }
@@ -1454,6 +1584,13 @@ Item {
                             x: fileComboBox.x
                             y: fileComboBox.y + fileComboBox.height
                             implicitWidth: fileComboBox.width
+                            padding: 1
+                            background: Rectangle {
+                                color: cardColor
+                                radius: 8
+                                border.color: borderColor
+                                border.width: 1
+                            }
                             contentItem: ScrollView {
                                 implicitWidth: fileComboBox.width
                                 implicitHeight: Math.min(fileModel.count * 36, 240)
@@ -1463,10 +1600,19 @@ Item {
                                     model: fileModel
                                     anchors.fill: parent
                                     delegate: Item {
-                                        width: parent.width
+                                        width: fileListView.width
                                         height: 36
-                                        Rectangle { anchors.fill: parent; color: "transparent" }
-                                        MouseArea { anchors.fill: parent; onClicked: { fileComboBox.currentIndex = index; fileComboBox.close(); } }
+                                        Rectangle {
+                                            anchors.fill: parent
+                                            color: delegateMA.containsMouse ? surfaceColor : "transparent"
+                                            radius: 4
+                                        }
+                                        MouseArea {
+                                            id: delegateMA
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            onClicked: { fileComboBox.currentIndex = index; fileComboBox.close(); }
+                                        }
                                         Text {
                                             text: model.display || (model.path && model.path.split('/').pop().replace(/\.[^/.]+$/, ""))
                                             elide: Text.ElideRight
@@ -1560,5 +1706,408 @@ Item {
             console.warn('readConfigFile not available; rebuild the app')
         }
         for (var i=0;i<arr.length;i++) { settingsModel.append({ key: arr[i].key || arr[i].k || '', value: arr[i].value || arr[i].v || '' }) }
+    }
+
+    // ========== AI 管理面板 ==========
+    property bool aiManagementVisible: false
+
+    Rectangle {
+        id: aiManagementPanel
+        anchors.fill: parent
+        color: "#000000"
+        opacity: 0.7
+        visible: mainPage.aiManagementVisible
+        z: 100
+        MouseArea { anchors.fill: parent; onClicked: mainPage.aiManagementVisible = false }
+
+        Rectangle {
+            id: aiPanelContent
+            anchors.centerIn: parent
+            width: Math.min(parent.width * 0.85, 900)
+            height: Math.min(parent.height * 0.85, 700)
+            color: cardColor
+            radius: 16
+            border.color: borderColor
+            border.width: 1
+            z: 101
+
+            property bool dataLoaded: false
+            onVisibleChanged: {
+                if (visible) {
+                    loadUserDictionary()
+                    loadSearchHistory()
+                }
+            }
+
+            // 关闭按钮
+            Rectangle {
+                anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 12
+                width: 32; height: 32; radius: 16
+                color: "transparent"; border.color: dangerColor; border.width: 1
+                MouseArea { anchors.fill: parent; onClicked: mainPage.aiManagementVisible = false; cursorShape: Qt.PointingHandCursor }
+                Text { text: "✕"; anchors.centerIn: parent; color: dangerColor; font.pointSize: 16 }
+            }
+
+            // 标题
+            Text {
+                anchors.top: parent.top; anchors.left: parent.left; anchors.margins: 20
+                text: "🤖 AI 智能管理"; color: primaryColor; font.pointSize: 18; font.bold: true
+            }
+
+            // 选项卡
+            RowLayout {
+                id: aiTabs
+                anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right
+                anchors.topMargin: 60; anchors.leftMargin: 20; anchors.rightMargin: 20
+                spacing: 8
+                property int selectedIndex: 0
+                Repeater {
+                    model: ["📚 用户词典", "📝 搜索历史", "⚙️ AI 设置"]
+                    delegate: Rectangle {
+                        color: aiTabs.selectedIndex === index ? primaryColor : surfaceColor
+                        radius: 8; height: 36
+                        Layout.preferredWidth: tabText.paintedWidth + 24
+                        border.color: aiTabs.selectedIndex === index ? primaryLight : borderColor
+                        border.width: 1
+                        MouseArea { anchors.fill: parent; onClicked: aiTabs.selectedIndex = index; cursorShape: Qt.PointingHandCursor }
+                        Text {
+                            id: tabText; text: modelData; anchors.centerIn: parent
+                            color: aiTabs.selectedIndex === index ? "#FFFFFF" : textSecondary; font.pointSize: 12
+                        }
+                    }
+                }
+                Item { Layout.fillWidth: true }
+            }
+
+            // 内容区域 - 用户词典
+            Rectangle {
+                anchors.fill: parent; anchors.topMargin: 110; anchors.bottomMargin: 20
+                anchors.leftMargin: 20; anchors.rightMargin: 20
+                color: "transparent"
+                visible: aiTabs.selectedIndex === 0
+                ColumnLayout {
+                    anchors.fill: parent; spacing: 12
+                    Rectangle {
+                        color: surfaceColor; radius: 10
+                        Layout.fillWidth: true; implicitHeight: addLayout.implicitHeight + 20
+                        border.color: borderColor; border.width: 1
+                        ColumnLayout {
+                            id: addLayout; anchors.fill: parent; anchors.margins: 12; spacing: 8
+                            Text { text: "添加自定义词条"; color: textPrimary; font.pointSize: 13; font.bold: true }
+                            RowLayout {
+                                Layout.fillWidth: true; spacing: 8
+                                TextField {
+                                    id: newTermKey; placeholderText: "英文键名 (如：exposure_time)"
+                                    Layout.fillWidth: true; height: 36; color: textPrimary; font.pointSize: 12
+                                    background: Rectangle { color: cardColor; radius: 8; border.color: borderColor; border.width: 1 }
+                                }
+                                TextField {
+                                    id: newTermChinese; placeholderText: "中文名 (如：曝光时间)"
+                                    Layout.fillWidth: true; height: 36; color: textPrimary; font.pointSize: 12
+                                    background: Rectangle { color: cardColor; radius: 8; border.color: borderColor; border.width: 1 }
+                                }
+                            }
+                            TextField {
+                                id: newTermSynonyms; placeholderText: "同义词 (用逗号分隔)"
+                                Layout.fillWidth: true; height: 36; color: textPrimary; font.pointSize: 12
+                                background: Rectangle { color: cardColor; radius: 8; border.color: borderColor; border.width: 1 }
+                            }
+                            Button {
+                                text: "➕ 添加词条"; height: 36; Layout.preferredWidth: 120
+                                onClicked: {
+                                    if (newTermKey.text.trim() && newTermChinese.text.trim()) {
+                                        var syms = newTermSynonyms.text.split(/[,,]/).map(function(s){return s.trim()}).filter(function(s){return s})
+                                        searchVM.addUserTerm(newTermKey.text.trim(), newTermChinese.text.trim(), syms)
+                                        newTermKey.text = ""; newTermChinese.text = ""; newTermSynonyms.text = ""
+                                        userDictModel.clear(); loadUserDictionary()
+                                    }
+                                }
+                                background: Rectangle { color: primaryColor; radius: 8 }
+                                contentItem: Text { text: parent.text; color: "#FFFFFF"; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                            }
+                        }
+                    }
+                    Text { text: "已定义 " + userDictModel.count + " 个自定义词条"; color: textSecondary; font.pointSize: 11 }
+                    Rectangle {
+                        color: cardColor; radius: 10; Layout.fillWidth: true; Layout.fillHeight: true
+                        border.color: borderColor; border.width: 1
+                        Flickable {
+                            anchors.fill: parent; clip: true
+                            contentHeight: userDictListView.contentHeight
+                            flickableDirection: Flickable.VerticalFlick
+                            ListView {
+                                id: userDictListView; model: userDictModel; spacing: 6; anchors.fill: parent
+                                delegate: Rectangle {
+                                    width: userDictListView.width - 20; height: 60; radius: 8
+                                    color: surfaceColor; border.color: borderColor; border.width: 1
+                                    RowLayout {
+                                        anchors.fill: parent; anchors.margins: 12; spacing: 12
+                                        Rectangle { width: 4; height: 40; radius: 2; color: accentColor }
+                                        ColumnLayout {
+                                            Layout.fillWidth: true; spacing: 4
+                                            Text { text: modelData.key; color: primaryLight; font.pointSize: 13; font.bold: true }
+                                            Text { text: "→ " + modelData.chinese; color: textSecondary; font.pointSize: 11 }
+                                            Text { text: modelData.synonyms ? "同义词：" + modelData.synonyms : ""; color: textMuted; font.pointSize: 10 }
+                                        }
+                                        Button {
+                                            text: "删除"; height: 30; Layout.preferredWidth: 60
+                                            onClicked: { searchVM.removeUserTerm(modelData.key); userDictModel.remove(index) }
+                                            background: Rectangle { color: "#3f1a1a"; radius: 6; border.color: dangerColor; border.width: 1 }
+                                            contentItem: Text { text: parent.text; color: dangerColor; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pointSize: 11 }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 内容区域 - 搜索历史
+            Rectangle {
+                anchors.fill: parent; anchors.topMargin: 110; anchors.bottomMargin: 20
+                anchors.leftMargin: 20; anchors.rightMargin: 20
+                color: "transparent"
+                visible: aiTabs.selectedIndex === 1
+                ColumnLayout {
+                    anchors.fill: parent; spacing: 12
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text { text: "📝 搜索历史"; color: textPrimary; font.pointSize: 14; font.bold: true }
+                        Item { Layout.fillWidth: true }
+                        Button {
+                            text: "清空历史"; height: 32; Layout.preferredWidth: 80
+                            onClicked: { searchVM.clearSearchHistory(); historyModel.clear(); hotSearchModel.clear() }
+                            background: Rectangle { color: "#3f1a1a"; radius: 8; border.color: dangerColor; border.width: 1 }
+                            contentItem: Text { text: parent.text; color: dangerColor; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pointSize: 11 }
+                        }
+                    }
+                    RowLayout { Layout.fillWidth: true; Layout.fillHeight: true; spacing: 16
+                        Rectangle {
+                            color: cardColor; radius: 10; Layout.fillWidth: true; Layout.fillHeight: true
+                            border.color: borderColor; border.width: 1
+                            ColumnLayout {
+                                anchors.fill: parent; anchors.margins: 12; spacing: 8
+                                Text { text: "最近搜索"; color: "#94a3b8"; font.pointSize: 12 }
+                                Rectangle {
+                                    color: "#1e293b"; radius: 8; Layout.fillWidth: true; Layout.fillHeight: true
+                                    border.color: borderColor; border.width: 1
+                                    Flickable {
+                                        anchors.fill: parent; clip: true
+                                        contentHeight: historyListView.contentHeight
+                                        flickableDirection: Flickable.VerticalFlick
+                                        ListView {
+                                            id: historyListView; model: historyModel; spacing: 4; anchors.fill: parent
+                                            delegate: Rectangle {
+                                                width: parent.width - 16; height: 40; radius: 6
+                                                color: index % 2 === 0 ? "#0f172a" : "#1e293b"
+                                                border.color: "#334155"
+                                                border.width: 1
+                                                RowLayout {
+                                                    anchors.fill: parent; anchors.margins: 10; spacing: 8
+                                                    Text { 
+                                                        text: model.query || ""
+                                                        color: "#f1f5f9"
+                                                        font.pointSize: 13
+                                                        font.bold: true
+                                                        elide: Text.ElideRight
+                                                        Layout.fillWidth: true
+                                                    }
+                                                    Text { 
+                                                        text: model.intent || ""
+                                                        color: "#94a3b8"
+                                                        font.pointSize: 11
+                                                    }
+                                                    Item { Layout.fillWidth: true }
+                                                    Text { 
+                                                        text: model.time || ""
+                                                        color: "#64748b"
+                                                        font.pointSize: 11
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Rectangle {
+                            color: cardColor; radius: 10; Layout.preferredWidth: 250; Layout.fillHeight: true
+                            border.color: borderColor; border.width: 1
+                            ColumnLayout {
+                                anchors.fill: parent; anchors.margins: 12; spacing: 8
+                                Text { text: "🔥 热门搜索"; color: "#94a3b8"; font.pointSize: 12 }
+                                Rectangle {
+                                    color: "#1e293b"; radius: 8; Layout.fillWidth: true; Layout.fillHeight: true
+                                    border.color: borderColor; border.width: 1
+                                    Flickable {
+                                        anchors.fill: parent; clip: true
+                                        contentHeight: hotSearchListView.contentHeight
+                                        flickableDirection: Flickable.VerticalFlick
+                                        ListView {
+                                            id: hotSearchListView; model: hotSearchModel; spacing: 4; anchors.fill: parent
+                                            delegate: Rectangle {
+                                                width: parent.width - 16; height: 36; radius: 6; color: "transparent"
+                                                RowLayout {
+                                                    anchors.fill: parent; anchors.margins: 8; spacing: 8
+                                                    Text { 
+                                                        text: (index + 1) + "."
+                                                        color: index < 3 ? "#F59E0B" : "#64748b"
+                                                        font.pointSize: 11
+                                                        font.bold: index < 3
+                                                    }
+                                                    Text { 
+                                                        text: model.query || ""
+                                                        color: "#f1f5f9"
+                                                        font.pointSize: 12
+                                                    }
+                                                    Item { Layout.fillWidth: true }
+                                                    Text { 
+                                                        text: (model.frequency || 0) + "次"
+                                                        color: "#64748b"
+                                                        font.pointSize: 10
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 内容区域 - AI 设置
+            Rectangle {
+                anchors.fill: parent; anchors.topMargin: 110; anchors.bottomMargin: 20
+                anchors.leftMargin: 20; anchors.rightMargin: 20
+                color: "transparent"
+                visible: aiTabs.selectedIndex === 2
+                ColumnLayout {
+                    anchors.fill: parent; spacing: 16
+                    Rectangle {
+                        color: surfaceColor; radius: 10; Layout.fillWidth: true; implicitHeight: 70
+                        border.color: borderColor; border.width: 1
+                        RowLayout {
+                            anchors.fill: parent; anchors.margins: 16; spacing: 16
+                            Text { text: "🤖"; font.pointSize: 28; opacity: searchVM.aiEnabled ? 1.0 : 0.5 }
+                            ColumnLayout {
+                                Layout.fillWidth: true; spacing: 4
+                                Text { text: "AI 智能增强"; color: textPrimary; font.pointSize: 14; font.bold: true }
+                                Text { text: "自动分析搜索意图，提供智能建议"; color: textSecondary; font.pointSize: 11 }
+                            }
+                            Rectangle {
+                                width: 56; height: 28; radius: 14
+                                color: searchVM.aiEnabled ? primaryColor : cardColor
+                                border.color: searchVM.aiEnabled ? primaryLight : borderColor; border.width: 1
+                                Rectangle {
+                                    width: 24; height: 24; radius: 12; color: "#FFFFFF"
+                                    x: searchVM.aiEnabled ? parent.width - 26 : 2; y: 2
+                                    Behavior on x { NumberAnimation { duration: 200 } }
+                                }
+                                MouseArea { anchors.fill: parent; onClicked: searchVM.aiEnabled = !searchVM.aiEnabled; cursorShape: Qt.PointingHandCursor }
+                            }
+                        }
+                    }
+                    Rectangle {
+                        color: surfaceColor; radius: 10; Layout.fillWidth: true; implicitHeight: 70
+                        border.color: borderColor; border.width: 1
+                        RowLayout {
+                            anchors.fill: parent; anchors.margins: 16; spacing: 16
+                            Text { text: "🧠"; font.pointSize: 28 }
+                            ColumnLayout {
+                                Layout.fillWidth: true; spacing: 4
+                                Text { text: "搜索历史学习"; color: textPrimary; font.pointSize: 14; font.bold: true }
+                                Text { text: "记录搜索历史，优化建议排序"; color: textSecondary; font.pointSize: 11 }
+                            }
+                            Rectangle {
+                                width: 56; height: 28; radius: 14
+                                color: searchVM.learningEnabled ? primaryColor : cardColor
+                                border.color: searchVM.learningEnabled ? primaryLight : borderColor; border.width: 1
+                                Rectangle {
+                                    width: 24; height: 24; radius: 12; color: "#FFFFFF"
+                                    x: searchVM.learningEnabled ? parent.width - 26 : 2; y: 2
+                                    Behavior on x { NumberAnimation { duration: 200 } }
+                                }
+                                MouseArea { anchors.fill: parent; onClicked: searchVM.setLearningEnabled(!searchVM.learningEnabled); cursorShape: Qt.PointingHandCursor }
+                            }
+                        }
+                    }
+                    Rectangle {
+                        color: surfaceColor; radius: 10; Layout.fillWidth: true; implicitHeight: 100
+                        border.color: borderColor; border.width: 1
+                        ColumnLayout {
+                            anchors.fill: parent; anchors.margins: 16; spacing: 12
+                            Text { text: "📊 统计信息"; color: textPrimary; font.pointSize: 14; font.bold: true }
+                            RowLayout {
+                                Layout.fillWidth: true; spacing: 16
+                                Repeater {
+                                    model: [
+                                        {count: userDictModel.count, label: "自定义词条", color: primaryLight},
+                                        {count: historyModel.count, label: "搜索历史", color: accentColor},
+                                        {count: hotSearchModel.count, label: "热门搜索", color: warningColor}
+                                    ]
+                                    delegate: Rectangle {
+                                        color: cardColor; radius: 8
+                                        Layout.preferredWidth: 150; Layout.preferredHeight: 50
+                                        border.color: borderColor; border.width: 1
+                                        ColumnLayout {
+                                            anchors.centerIn: parent; spacing: 2
+                                            Text { text: modelData.count; color: modelData.color; font.pointSize: 20; font.bold: true }
+                                            Text { text: modelData.label; color: textMuted; font.pointSize: 10 }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Item { Layout.fillHeight: true }
+                    Rectangle {
+                        color: cardColor; radius: 8; Layout.fillWidth: true; implicitHeight: 60
+                        border.color: borderColor; border.width: 1
+                        ColumnLayout {
+                            anchors.fill: parent; anchors.margins: 12; spacing: 4
+                            Text { text: "数据文件位置"; color: textMuted; font.pointSize: 10 }
+                            Text {
+                                text: searchVM.getUserDictionaryPath ? searchVM.getUserDictionaryPath() : "未知"
+                                color: textSecondary; font.pointSize: 10; font.family: "monospace"
+                                wrapMode: Text.WrapAnywhere
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    function loadUserDictionary() {
+        var terms = searchVM.getUserTerms()
+        userDictModel.clear()
+        for (var i = 0; i < terms.length; i++) {
+            userDictModel.append({
+                key: terms[i].key,
+                chinese: terms[i].chinese,
+                synonyms: terms[i].synonyms ? terms[i].synonyms.join(", ") : ""
+            })
+        }
+    }
+
+    function loadSearchHistory() {
+        historyModel.clear()
+        hotSearchModel.clear()
+        var history = searchVM.getSearchHistory(50)
+        for (var i = 0; i < history.length; i++) {
+            var h = history[i]
+            historyModel.append({
+                query: h.query,
+                intent: h.intent === "search_key" ? "🔑 配置项" : h.intent === "search_value" ? "📊 参数值" : "📝 中文",
+                time: h.timestamp ? new Date(h.timestamp).toLocaleTimeString() : ""
+            })
+        }
+        var hot = searchVM.getHotSearches(20)
+        for (var j = 0; j < hot.length; j++) {
+            hotSearchModel.append({ query: hot[j].query, frequency: hot[j].frequency })
+        }
     }
 }

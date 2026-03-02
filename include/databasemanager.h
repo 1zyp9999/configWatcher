@@ -18,16 +18,18 @@ public:
 
     bool saveConfigEntry(const QString& key, const QString& value, const QString& filePath, const QString& format, const QString& chineseKey);
 
-    // 导入 ini 文件（示例：camera.ini）
+    // 导入配置文件
     Q_INVOKABLE bool importIniFile(const QString& filePath, const QString& device = QString());
+    Q_INVOKABLE bool importJsonFile(const QString& filePath, const QString& device = QString());
+    Q_INVOKABLE bool importXmlFile(const QString& filePath, const QString& device = QString());
 
     // 翻译表管理：列出、设置并将翻译应用到 parameters
     Q_INVOKABLE QVariantList listTranslations();
     Q_INVOKABLE bool setTranslation(const QString& key, const QString& chinese);
     Q_INVOKABLE bool applyTranslationsToParameters();
 
-    // 搜索（支持 FTS5 或回退到 LIKE）
-    Q_INVOKABLE QVariantList searchParameters(const QString& query, int mode = 0); // mode:0 fuzzy,1 exact
+    // 搜索（支持 FTS5 或回退到 LIKE），formatFilter 为空则不过滤
+    Q_INVOKABLE QVariantList searchParameters(const QString& query, int mode = 0, const QString& formatFilter = QString()); // mode:0 fuzzy,1 exact
     Q_INVOKABLE QStringList listAllKeys();
     Q_INVOKABLE QVariantList listFiles();
 

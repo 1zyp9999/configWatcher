@@ -1,9 +1,9 @@
 <RCC>
     <qresource prefix="/">
-        <!-- 确保QML文件路径与实际目录一致 -->
         <file>qml/main.qml</file>
         <file>qml/LoginPage.qml</file>
         <file>qml/MainPage.qml</file>
+        <file>qml/MiniMode.qml</file>
         <file>images/login_background.png</file>
     </qresource>
 </RCC>
