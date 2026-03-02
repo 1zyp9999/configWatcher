@@ -5,250 +5,1560 @@ import ConfigWatcher 1.0
 
 Item {
     id: mainPage
+
     property string selectedTitle: ""
     property string selectedContent: ""
     property string selectedFormat: ""
+    property string appName: "ConfigWatcher"
+    property string appVersion: "v0.0.1"
+    property string buildTime: "未知"
+    property string appAuthor: ""
     property bool aboutVisible: false
+    property bool translationsVisible: false
+    property bool suggestionsVisible: false
     property bool settingsVisible: false
+    property string settingsFilePath: ""
+    signal openFileRequested(string filePath)
+    ListModel { id: settingsModel }
+    ListModel { id: fileModel }
 
-    // 配色
-    readonly property color primaryColor: "#00d9ff"
-    readonly property color secondaryColor: "#7b2cbf"
-    readonly property color accentColor: "#f72585"
-    readonly property color bgColor: "#0a0e17"
-    readonly property color cardBg: "#111827"
-    readonly property color textColor: "#e5e7eb"
-    readonly property color textMuted: "#9ca3af"
+    // ===== 深色配色方案（与登录界面统一） =====
+    property color primaryColor: "#2563EB"        // 主色：蓝
+    property color primaryLight: "#3B82F6"        // 浅主色
+    property color primaryDark: "#1D4ED8"         // 深主色
+    property color accentColor: "#10B981"         // 强调色：翡翠绿
+    property color warningColor: "#F59E0B"        // 警告色：琥珀
+    property color dangerColor: "#EF4444"         // 危险色
+    property color bgColor: "#020617"             // 页面背景（最深）
+    property color cardColor: "#0f172a"           // 卡片背景（深蓝灰）
+    property color surfaceColor: "#1e293b"        // 表面色（输入框/工具栏）
+    property color borderColor: "#334155"         // 边框
+    property color borderLightColor: "#1e293b"    // 浅边框
+    property color textPrimary: "#f1f5f9"         // 主文本（亮白）
+    property color textSecondary: "#94a3b8"       // 次文本（灰）
+    property color textMuted: "#64748b"           // 弱文本
 
-    width: parent ? parent.width : 1200
-    height: parent ? parent.height : 800
+    // 保持旧属性兼容
+    property color boxColor: cardColor
+    property color boxColorSolid: cardColor
+    property color textColor: textPrimary
 
-    SearchViewModel {
-        id: searchVM
+    property int defaultWidth: 800
+    property int defaultHeight: 600
+    width: (parent && parent.width !== undefined && parent.width !== null) ? parseInt(parent.width) : defaultWidth
+    height: (parent && parent.height !== undefined && parent.height !== null) ? parseInt(parent.height) : defaultHeight
+
+    Component.onCompleted: {
+        if (parent) {
+            width = parent.width ? parseInt(parent.width) : defaultWidth
+            height = parent.height ? parseInt(parent.height) : defaultHeight
+        }
+        if (typeof APP_VERSION !== 'undefined') mainPage.appVersion = APP_VERSION
+        if (typeof APP_BUILD_TIME !== 'undefined') mainPage.buildTime = APP_BUILD_TIME
+        if (typeof APP_NAME !== 'undefined') mainPage.appName = APP_NAME
+        if (typeof APP_AUTHOR !== 'undefined') mainPage.appAuthor = APP_AUTHOR
     }
 
-    // 背景
+    // ===== 深色背景（与登录界面一致） =====
     Rectangle {
         anchors.fill: parent
         color: bgColor
+        z: -2
+    }
+    Image {
+        anchors.fill: parent
+        source: "qrc:/images/login_background.png"
+        fillMode: Image.AspectFill
+        opacity: 0.08
+        z: -1
+        onStatusChanged: {
+            if (status === Image.Error) visible = false;
+        }
     }
 
-    ColumnLayout {
+    SearchViewModel {
+        id: searchVM
+        Component.onCompleted: {
+            if (typeof searchVM.searchText === 'undefined') searchVM.searchText = ""
+        }
+    }
+
+    function selectDirectory() {
+        var dir = searchVM.selectDirectory();
+        if (dir && dir.trim() !== "") {
+            searchVM.loadConfigFiles([dir]);
+        } else {
+            console.warn("选择的目录为空或无效");
+        }
+    }
+
+    // ===== 主内容区域 =====
+    Rectangle {
+        id: contentCard
         anchors.fill: parent
-        anchors.margins: 20
-        spacing: 16
+        anchors.margins: 16
+        color: cardColor
+        radius: 16
+        border.color: borderColor
+        border.width: 1
 
-        // 标题栏
+        // 顶部蓝色装饰条（与登录卡片一致）
         Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 60
-            color: cardBg
-            border.color: primaryColor
-            border.width: 1
-            radius: 10
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 20
-                anchors.rightMargin: 20
-
-                Text {
-                    text: "⚡ ConfigWatcher"
-                    font.pixelSize: 22
-                    font.bold: true
-                    color: primaryColor
-                }
-
-                Item { Layout.fillWidth: true }
-
-                Button {
-                    text: "关于"
-                    onClicked: aboutVisible = true
-                    background: Rectangle { color: primaryColor; radius: 6 }
-                    contentItem: Text { text: "关于"; color: "#000"; anchors.centerIn: parent }
-                }
-            }
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: 3
+            radius: 16
+            color: primaryColor
         }
 
-        // 搜索栏
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 70
-            color: cardBg
-            border.color: accentColor
-            border.width: 1
-            radius: 10
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 0
+            spacing: 0
 
-            RowLayout {
-                anchors.fill: parent
-                anchors.margins: 16
-                spacing: 12
+            // ===== 顶部导航栏 =====
+            Rectangle {
+                id: topMenu
+                Layout.fillWidth: true
+                height: 52
+                color: "transparent"
+                radius: 0
 
-                TextField {
-                    id: searchField
-                    placeholderText: "输入关键字搜索..."
-                    Layout.fillWidth: true
-                    height: 40
-                    color: textColor
-                    onAccepted: doSearch()
-                    background: Rectangle { color: "#0d1117"; radius: 6; border.color: "#374151"; border.width: 1 }
+                // 底部分割线
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    height: 1
+                    color: borderColor
                 }
 
-                ComboBox {
-                    id: searchModeCombo
-                    model: ["模糊搜索", "精准搜索"]
-                    Layout.preferredWidth: 120
-                    height: 40
-                    background: Rectangle { color: "#0d1117"; radius: 6; border.color: "#374151"; border.width: 1 }
-                    contentItem: Text { text: searchModeCombo.currentText; color: textColor; anchors.centerIn: parent }
-                    popup.background: Rectangle { color: cardBg }
-                }
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 20
+                    anchors.rightMargin: 20
+                    spacing: 4
 
-                Button {
-                    text: "🔍 搜索"
-                    onClicked: doSearch()
-                    background: Rectangle { color: primaryColor; radius: 6 }
-                    contentItem: Text { text: "🔍 搜索"; color: "#000"; anchors.centerIn: parent }
-                }
+                    // Logo区域
+                    Text {
+                        text: "CW"
+                        font.pointSize: 16
+                        font.bold: true
+                        color: primaryColor
+                    }
+                    Rectangle { width: 1; height: 24; color: borderColor; Layout.leftMargin: 8; Layout.rightMargin: 8 }
 
-                Button {
-                    text: "清空"
-                    onClicked: { searchField.text = ""; searchVM.searchText = ""; searchVM.updateSearchResults() }
-                    background: Rectangle { color: "#374151"; radius: 6 }
-                    contentItem: Text { text: "清空"; color: "#fff"; anchors.centerIn: parent }
-                }
-            }
-        }
+                    Repeater {
+                        model: [qsTr("开始"), qsTr("系统"), qsTr("修改"), qsTr("帮助"), qsTr("关于")]
+                        delegate: Rectangle {
+                            id: menuItemRect
+                            color: "transparent"
+                            radius: 8
+                            Layout.preferredWidth: menuText.paintedWidth + 24
+                            Layout.preferredHeight: 36
 
-        // 进度条
-        ProgressBar {
-            Layout.fillWidth: true
-            value: searchVM.isLoading ? 1 : (searchVM.loadProgress / 100)
-            visible: searchVM.isLoading
-            background: Rectangle { color: "#1f2937"; radius: 3 }
-            contentItem: Rectangle { color: primaryColor; radius: 3 }
-        }
-
-        // 结果统计
-        Text {
-            text: "共 " + (searchVM.searchResults ? searchVM.searchResults.length : 0) + " 条结果"
-            color: textMuted
-        }
-
-        // 结果列表
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            color: cardBg
-            border.color: "#1f2937"
-            border.width: 1
-            radius: 10
-
-            ScrollView {
-                anchors.fill: parent
-                clip: true
-
-                ListView {
-                    id: resultListView
-                    width: parent.width
-                    height: contentHeight
-                    model: searchVM.searchResults
-                    spacing: 8
-
-                    delegate: Rectangle {
-                        width: resultListView.width - 16
-                        height: 60
-                        color: "#1f2937"
-                        radius: 6
-
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.margins: 12
-
-                            ColumnLayout {
-                                Layout.fillWidth: true
-
-                                Text {
-                                    text: (modelData && modelData.key) ? modelData.key : "未知"
-                                    color: primaryColor
-                                    font.bold: true
-                                    elide: Text.ElideRight
-                                    Layout.fillWidth: true
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                property string label: modelData
+                                onClicked: {
+                                    if (label === qsTr("关于")) mainPage.aboutVisible = true
+                                    else if (label === qsTr("修改")) mainPage.settingsVisible = true
+                                    else console.log("点击菜单：", label)
                                 }
-
-                                Text {
-                                    text: "值：" + ((modelData && modelData.value) ? modelData.value : "")
-                                    color: textMuted
-                                    elide: Text.ElideRight
-                                    Layout.fillWidth: true
-                                }
+                                onEntered: menuItemRect.color = surfaceColor
+                                onExited: menuItemRect.color = "transparent"
                             }
 
-                            Button {
-                                text: "查看"
-                                onClicked: {
-                                    selectedTitle = (modelData && modelData.key) ? modelData.key : ""
-                                    selectedContent = (modelData && modelData.value) ? modelData.value : ""
-                                    detailDialog.open()
-                                }
-                                background: Rectangle { color: accentColor; radius: 4 }
-                                contentItem: Text { text: "查看"; color: "#fff"; anchors.centerIn: parent }
+                            Text {
+                                id: menuText
+                                text: modelData
+                                anchors.centerIn: parent
+                                color: textSecondary
+                                font.pointSize: 13
                             }
                         }
                     }
 
+                    Rectangle {
+                        id: fileMenuBtnRect
+                        color: "transparent"
+                        radius: 8
+                        Layout.preferredWidth: fileMenuText.paintedWidth + 24
+                        Layout.preferredHeight: 36
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: {
+                                if (DB && typeof DB.listFiles === 'function') {
+                                    var files = DB.listFiles()
+                                    fileModel.clear()
+                                    for (var i=0;i<files.length;i++) {
+                                        var p = files[i].path || ""
+                                        var name = p.split('/').pop() || p
+                                        name = name.replace(/\.[^/.]+$/, "")
+                                        fileModel.append({path: p, format: files[i].format, display: name})
+                                    }
+                                    if (fileModel.count>0) {
+                                        settingsFilePath = fileModel.get(0).path
+                                    }
+                                    mainPage.settingsVisible = true
+                                } else {
+                                    console.log('DB.listFiles not available; please rebuild the app')
+                                }
+                            }
+                            onEntered: fileMenuBtnRect.color = surfaceColor
+                            onExited: fileMenuBtnRect.color = "transparent"
+                        }
+                        Text { id: fileMenuText; text: qsTr("文件"); anchors.centerIn: parent; color: textSecondary; font.pointSize: 13 }
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    // 右侧版本标签
                     Text {
-                        anchors.centerIn: parent
-                        text: searchField.text === "" ? "请输入关键字搜索" : "未找到结果"
+                        text: mainPage.appVersion
                         color: textMuted
-                        visible: resultListView.count === 0
+                        font.pointSize: 10
+                    }
+                }
+            }
+
+            // ===== 工具栏 =====
+            Rectangle {
+                id: toolbarCard
+                color: "#0b1222"
+                radius: 0
+                Layout.fillWidth: true
+                implicitHeight: toolbarLayout.implicitHeight + 24
+                z: 1
+
+                // 底部分割线
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    height: 1
+                    color: borderColor
+                }
+
+                ColumnLayout {
+                    id: toolbarLayout
+                    anchors.fill: parent
+                    anchors.leftMargin: 20
+                    anchors.rightMargin: 20
+                    anchors.topMargin: 12
+                    anchors.bottomMargin: 12
+                    spacing: 10
+
+                    // ---- 第一行：快捷入口 + 下拉选择 ----
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        // 光源预设
+                        Rectangle {
+                            id: lightIconBtn
+                            width: 34; height: 34; radius: 8
+                            color: "#1e293b"
+                            border.color: "#fbbf24"; border.width: 1
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                hoverEnabled: true
+                                onClicked: searchField.text = "light"
+                                onEntered: parent.color = "#334155"
+                                onExited: parent.color = "#1e293b"
+                            }
+                            Text { text: "\u2600"; anchors.centerIn: parent; color: "#fbbf24"; font.pointSize: 15 }
+                        }
+
+                        // 相机预设
+                        Rectangle {
+                            id: cameraIconBtn
+                            width: 34; height: 34; radius: 8
+                            color: "#1e293b"
+                            border.color: "#3b82f6"; border.width: 1
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                hoverEnabled: true
+                                onClicked: searchField.text = "camera"
+                                onEntered: parent.color = "#334155"
+                                onExited: parent.color = "#1e293b"
+                            }
+                            Text { text: "\uD83D\uDCF7"; anchors.centerIn: parent; color: "#3b82f6"; font.pointSize: 13 }
+                        }
+
+                        Rectangle { width: 1; height: 24; color: borderColor }
+
+                        // 配置类型标签
+                        Text { text: qsTr("类型"); color: textSecondary; font.pointSize: 11 }
+                        ComboBox {
+                            id: configTypeCombo
+                            model: ["相机", "投影", "用户配置", "调整配置", "hardware配置", "标定配置"]
+                            Layout.preferredWidth: 130
+                            font.pointSize: 12
+                            background: Rectangle { color: surfaceColor; radius: 8; border.color: borderColor; border.width: 1 }
+                            contentItem: Text { text: configTypeCombo.currentText; color: textPrimary; verticalAlignment: Text.AlignVCenter; anchors.left: parent.left; anchors.leftMargin: 10 }
+                            function loadConfigByType() {
+                                var type = configTypeCombo.currentText;
+                                var baseDir = searchVM.selectDirectory();
+                                if (!baseDir || baseDir.trim() === "") return;
+                                var fileMap = {
+                                    "相机": "camera", "投影": "projector",
+                                    "用户配置": "usersetting", "调整配置": "adjustsetting",
+                                    "hardware配置": "hardware", "标定配置": "calibration"
+                                };
+                                var fileName = fileMap[type];
+                                if (fileName) {
+                                    var ext = suffixCombo.currentText || "ini";
+                                    searchVM.loadConfigFiles([baseDir + "/" + fileName + "." + ext]);
+                                }
+                            }
+                            onCurrentIndexChanged: loadConfigByType()
+                        }
+
+                        Text { text: qsTr("后缀"); color: textSecondary; font.pointSize: 11 }
+                        ComboBox {
+                            id: suffixCombo
+                            model: ["ini", "xml", "ccf"]
+                            Layout.preferredWidth: 72
+                            font.pointSize: 12
+                            currentIndex: 0
+                            background: Rectangle { color: surfaceColor; radius: 8; border.color: borderColor; border.width: 1 }
+                            contentItem: Text { text: suffixCombo.currentText; color: textPrimary; verticalAlignment: Text.AlignVCenter; anchors.left: parent.left; anchors.leftMargin: 10 }
+                        }
+
+                        Rectangle { width: 1; height: 24; color: borderColor }
+
+                        Text { text: qsTr("模式"); color: textSecondary; font.pointSize: 11 }
+                        ComboBox {
+                            id: searchModeCombo
+                            model: [qsTr("模糊搜索"), qsTr("精准搜索")]
+                            Layout.preferredWidth: 110
+                            font.pointSize: 12
+                            currentIndex: 0
+                            background: Rectangle { color: surfaceColor; radius: 8; border.color: borderColor; border.width: 1 }
+                            contentItem: Text { text: searchModeCombo.currentText; color: textPrimary; verticalAlignment: Text.AlignVCenter; anchors.left: parent.left; anchors.leftMargin: 10 }
+                            onCurrentIndexChanged: {
+                                searchVM.searchMode = currentIndex
+                                searchVM.updateSearchResults()
+                            }
+                        }
+
+                        Item { Layout.fillWidth: true }
+                    }
+
+                    // ---- 第二行：搜索框 + 按钮 ----
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        // 搜索输入框
+                        TextField {
+                            id: searchField
+                            placeholderText: qsTr("搜索字段名/值（支持中文）...")
+                            text: searchVM.searchText || ""
+                            onAccepted: {
+                                searchVM.searchText = text
+                                if (searchVM.aiEnabled) searchVM.analyzeSearchQuery(text)
+                                searchVM.updateSearchResults()
+                            }
+                            onTextChanged: {
+                                if (searchVM.aiEnabled && text.length >= 2) {
+                                    analyzeTimer.restart()
+                                }
+                            }
+                            Layout.fillWidth: true
+                            height: 38
+                            font.pointSize: 13
+                            color: textPrimary
+                            placeholderTextColor: textMuted
+                            background: Rectangle {
+                                color: surfaceColor
+                                radius: 10
+                                border.width: 1
+                                border.color: searchField.activeFocus ? primaryColor : borderColor
+                            }
+                        }
+
+                        // 定时器：用于延迟触发 AI 分析，避免频繁调用
+                        Timer {
+                            id: analyzeTimer
+                            interval: 300
+                            onTriggered: {
+                                if (searchVM.aiEnabled && searchField.text.length >= 2) {
+                                    searchVM.analyzeSearchQuery(searchField.text)
+                                }
+                            }
+                        }
+
+                        // 搜索按钮
+                        Button {
+                            id: searchButton
+                            text: qsTr("搜索")
+                            font.pointSize: 12
+                            height: 38
+                            Layout.preferredWidth: 72
+                            onClicked: {
+                                searchVM.searchText = searchField.text
+                                if (searchVM.aiEnabled) searchVM.analyzeSearchQuery(searchField.text)
+                                searchVM.updateSearchResults()
+                            }
+                            background: Rectangle {
+                                radius: 10
+                                color: primaryColor
+                            }
+                            contentItem: Text { text: parent.text; color: "#FFFFFF"; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pointSize: 12; font.bold: true }
+                        }
+
+                        // AI 开关按钮
+                        Rectangle {
+                            id: aiToggleBtn
+                            width: 38; height: 38; radius: 10
+                            color: searchVM.aiEnabled ? "#1e3a5f" : surfaceColor
+                            border.color: searchVM.aiEnabled ? "#60a5fa" : borderColor
+                            border.width: 1
+                            ToolTip {
+                                visible: aiToggleMouse.containsMouse
+                                text: searchVM.aiEnabled ? "关闭 AI 增强" : "开启 AI 增强"
+                                timeout: 2000
+                            }
+                            MouseArea {
+                                id: aiToggleMouse
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                hoverEnabled: true
+                                onClicked: searchVM.aiEnabled = !searchVM.aiEnabled
+                                onEntered: { if (searchVM.aiEnabled) parent.color = "#254575"; else parent.color = "#334155" }
+                                onExited: { if (searchVM.aiEnabled) parent.color = "#1e3a5f"; else parent.color = surfaceColor }
+                            }
+                            Text {
+                                text: searchVM.aiEnabled ? "🤖" : "🤖"
+                                anchors.centerIn: parent
+                                font.pointSize: 16
+                                opacity: searchVM.aiEnabled ? 1.0 : 0.5
+                            }
+                        }
+
+                        // 联想按钮
+                        Button {
+                            id: suggestBtn
+                            text: qsTr("联想")
+                            font.pointSize: 12
+                            height: 38
+                            Layout.preferredWidth: 72
+                            onClicked: {
+                                searchVM.buildKeyIndex()
+                                searchVM.requestSuggestClusters(searchField.text, 8, 6)
+                                mainPage.suggestionsVisible = true
+                                suggestModel.clear()
+                            }
+                            background: Rectangle { radius: 10; color: surfaceColor; border.color: primaryColor; border.width: 1 }
+                            contentItem: Text { text: parent.text; color: primaryLight; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pointSize: 12 }
+                        }
+
+                        // 清空按钮
+                        Button {
+                            text: qsTr("清空")
+                            font.pointSize: 12
+                            height: 38
+                            Layout.preferredWidth: 72
+                            onClicked: { searchField.text = ""; searchVM.searchText = "" }
+                            background: Rectangle { radius: 10; color: surfaceColor; border.color: borderColor; border.width: 1 }
+                            contentItem: Text { text: parent.text; color: textSecondary; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pointSize: 12 }
+                        }
+                    }
+                }
+            }
+
+            // ===== AI 智能分析面板 =====
+            Rectangle {
+                id: aiAnalysisCard
+                color: "#0f172a"
+                radius: 12
+                Layout.fillWidth: true
+                implicitHeight: aiLayout.implicitHeight + 20
+                Layout.leftMargin: 20
+                Layout.rightMargin: 20
+                Layout.topMargin: 8
+                visible: searchVM.aiEnabled && (searchVM.aiIntent !== "" || searchVM.aiSuggestions.length > 0)
+                border.color: searchVM.aiConfidence > 0.8 ? "#10B981" : (searchVM.aiConfidence > 0.5 ? "#3B82F6" : borderColor)
+                border.width: 1
+
+                ColumnLayout {
+                    id: aiLayout
+                    anchors.fill: parent
+                    anchors.leftMargin: 16
+                    anchors.rightMargin: 16
+                    anchors.topMargin: 12
+                    anchors.bottomMargin: 12
+                    spacing: 10
+
+                    // 第一行：AI 标识和意图
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        // AI 标识
+                        Rectangle {
+                            width: 28; height: 28; radius: 6
+                            color: "#1e3a5f"
+                            border.color: "#60a5fa"
+                            border.width: 1
+                            Text {
+                                text: "✨"
+                                anchors.centerIn: parent
+                                font.pointSize: 14
+                            }
+                        }
+
+                        // 意图标签
+                        Rectangle {
+                            color: searchVM.aiIntent === "search_key" ? "#1e3a5f" :
+                                   searchVM.aiIntent === "search_value" ? "#14332a" :
+                                   searchVM.aiIntent === "search_chinese" ? "#2d1f3d" :
+                                   searchVM.aiIntent === "navigate" ? "#1f3a2d" : "#1e293b"
+                            radius: 6
+                            height: 28
+                            Layout.preferredWidth: intentText.paintedWidth + 16
+                            visible: intentText.text !== ""
+
+                            Text {
+                                id: intentText
+                                text: {
+                                    if (!searchVM.aiEnabled) return ""
+                                    switch (searchVM.aiIntent) {
+                                        case "search_key": return "🔑 搜索配置项"
+                                        case "search_value": return "📊 搜索参数值"
+                                        case "search_chinese": return "📝 搜索中文描述"
+                                        case "navigate": return "🧭 导航意图"
+                                        default: return "🔍 分析中..."
+                                    }
+                                }
+                                anchors.centerIn: parent
+                                color: textPrimary
+                                font.pointSize: 11
+                            }
+                        }
+
+                        // 置信度指示器
+                        Rectangle {
+                            color: "transparent"
+                            Layout.fillWidth: true
+                            height: 28
+
+                            RowLayout {
+                                anchors.right: parent.right
+                                spacing: 6
+
+                                Text {
+                                    text: "置信度："
+                                    color: textMuted
+                                    font.pointSize: 10
+                                }
+
+                                // 进度条样式的置信度
+                                Rectangle {
+                                    width: 100; height: 8; radius: 4
+                                    color: "#1e293b"
+                                    border.color: borderColor
+                                    border.width: 1
+
+                                    Rectangle {
+                                        width: parent.width * (searchVM.aiConfidence || 0)
+                                        height: parent.height
+                                        radius: 4
+                                        color: searchVM.aiConfidence > 0.8 ? "#10B981" :
+                                               searchVM.aiConfidence > 0.5 ? "#3B82F6" : "#F59E0B"
+                                    }
+                                }
+
+                                Text {
+                                    text: Math.round((searchVM.aiConfidence || 0) * 100) + "%"
+                                    color: textSecondary
+                                    font.pointSize: 10
+                                    Layout.preferredWidth: 40
+                                }
+                            }
+                        }
+                    }
+
+                    // 第二行：AI 解释
+                    Text {
+                        text: searchVM.aiExplanation || ""
+                        color: textSecondary
+                        font.pointSize: 11
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                        visible: text !== ""
+                    }
+
+                    // 第三行：AI 建议
+                    Rectangle {
+                        color: "transparent"
+                        Layout.fillWidth: true
+                        implicitHeight: suggestionsRow.implicitHeight
+                        visible: suggestionsRow.children.length > 0
+
+                        RowLayout {
+                            id: suggestionsRow
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            spacing: 6
+
+                            Repeater {
+                                model: searchVM.aiSuggestions
+
+                                delegate: Rectangle {
+                                    id: suggestItem
+                                    color: "transparent"
+                                    radius: 6
+                                    height: 28
+                                    Layout.preferredWidth: suggestText.paintedWidth + 16
+                                    border.color: "#3B82F6"
+                                    border.width: 1
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            searchField.text = modelData.text
+                                            searchVM.searchText = modelData.text
+                                            searchVM.updateSearchResults()
+                                        }
+                                        onEntered: suggestItem.color = "#1e3a5f"
+                                        onExited: suggestItem.color = "transparent"
+                                    }
+
+                                    Text {
+                                        id: suggestText
+                                        text: modelData.text
+                                        color: modelData.type === "exact" ? primaryLight :
+                                               modelData.type === "synonym" ? "#6ee7b7" : "#a78bfa"
+                                        anchors.centerIn: parent
+                                        font.pointSize: 11
+                                    }
+
+                                    // 建议类型提示
+                                    Rectangle {
+                                        anchors.left: parent.right
+                                        anchors.leftMargin: 2
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: 6; height: 6; radius: 3
+                                        color: modelData.type === "exact" ? primaryColor :
+                                               modelData.type === "synonym" ? "#10B981" : "#8b5cf6"
+                                        visible: index === 0  // 只显示一个图例
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ===== 进度条 =====
+            ProgressBar {
+                Layout.fillWidth: true
+                Layout.leftMargin: 20
+                Layout.rightMargin: 20
+                value: (searchVM.loadProgress || 0) / 100
+                visible: searchVM.isLoading || false
+                height: 4
+                background: Rectangle { color: borderLightColor; radius: 2 }
+                contentItem: Rectangle {
+                    color: primaryColor
+                    radius: 2
+                }
+            }
+
+            // ===== 内容区域：结果列表 =====
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Layout.leftMargin: 20
+                Layout.rightMargin: 20
+                Layout.bottomMargin: 0
+                color: "transparent"
+
+                RowLayout {
+                    anchors.fill: parent
+                    spacing: 0
+                    ListView {
+                        id: resultListView
+                        width: parent.width
+                        height: parent.height
+                        model: searchVM.searchResults || []
+                        spacing: 6
+                        clip: true
+                        delegate: Rectangle {
+                            width: resultListView.width
+                            height: 52
+                            radius: 10
+                            color: surfaceColor
+                            border.color: borderColor
+                            border.width: 1
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                onEntered: parent.color = "#253348"
+                                onExited: parent.color = surfaceColor
+                            }
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 14
+                                anchors.rightMargin: 14
+                                anchors.topMargin: 8
+                                anchors.bottomMargin: 8
+                                spacing: 12
+
+                                // 字段名左侧蓝色标记
+                                Rectangle {
+                                    width: 4; height: 28; radius: 2
+                                    color: primaryColor
+                                }
+
+                                Text {
+                                    id: fieldName
+                                    text: modelData.chineseKey || modelData.chinese || modelData.key || modelData.name || "未知字段"
+                                    color: textPrimary
+                                    font.pointSize: 13
+                                    font.bold: true
+                                    elide: Text.ElideRight
+                                    Layout.preferredWidth: resultListView.width * 0.38
+                                }
+
+                                RowLayout {
+                                    spacing: 6
+                                    Layout.alignment: Qt.AlignRight
+
+                                    Button {
+                                        text: qsTr("值")
+                                        Layout.preferredWidth: 52
+                                        height: 30
+                                        onClicked: {
+                                            mainPage.selectedTitle = qsTr("值: ") + (modelData.key || "")
+                                            mainPage.selectedContent = modelData.value || modelData.raw_value || ""
+                                            mainPage.selectedFormat = modelData.format || modelData.fileFormat || ""
+                                        }
+                                        background: Rectangle { radius: 8; color: "#1e3a5f"; border.color: "#2563EB"; border.width: 1 }
+                                        contentItem: Text { text: parent.text; color: "#60a5fa"; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pointSize: 11 }
+                                    }
+
+                                    Button {
+                                        text: qsTr("中文名")
+                                        Layout.preferredWidth: 68
+                                        height: 30
+                                        onClicked: {
+                                            mainPage.selectedTitle = qsTr("中文名: ") + (modelData.key || "")
+                                            mainPage.selectedContent = modelData.chineseKey || modelData.chinese || ""
+                                            mainPage.selectedFormat = modelData.format || modelData.fileFormat || ""
+                                        }
+                                        background: Rectangle { radius: 8; color: "#14332a"; border.color: "#10B981"; border.width: 1 }
+                                        contentItem: Text { text: parent.text; color: "#6ee7b7"; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pointSize: 11 }
+                                    }
+
+                                    Button {
+                                        text: qsTr("含义")
+                                        Layout.preferredWidth: 52
+                                        height: 30
+                                        onClicked: {
+                                            mainPage.selectedTitle = qsTr("含义: ") + (modelData.key || "")
+                                            mainPage.selectedContent = modelData.description || modelData.desc || modelData.comment || ""
+                                            mainPage.selectedFormat = modelData.format || modelData.fileFormat || ""
+                                        }
+                                        background: Rectangle { radius: 8; color: "#362f14"; border.color: "#F59E0B"; border.width: 1 }
+                                        contentItem: Text { text: parent.text; color: "#fbbf24"; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pointSize: 11 }
+                                    }
+                                    Button {
+                                        text: qsTr("打开文件")
+                                        Layout.preferredWidth: 80
+                                        height: 30
+                                        onClicked: {
+                                            mainPage.openFileRequested(modelData.filePath)
+                                        }
+                                        background: Rectangle { radius: 8; color: "#1e1b4b"; border.color: "#6366F1"; border.width: 1 }
+                                        contentItem: Text { text: parent.text; color: "#a5b4fc"; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pointSize: 11 }
+                                    }
+                                }
+                            }
+                        }
+
+                        // 预览框
+                        Rectangle {
+                            id: previewBox
+                            width: Math.min(parent.width * 0.35, 320)
+                            height: 150
+                            anchors.right: parent.right
+                            anchors.bottom: parent.bottom
+                            anchors.margins: 12
+                            radius: 12
+                            color: cardColor
+                            border.color: borderColor
+                            border.width: 1
+                            z: 2
+                            clip: true
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 12
+                                spacing: 6
+                                Text {
+                                    text: mainPage.selectedTitle || qsTr("未选择")
+                                    color: textPrimary
+                                    font.bold: true
+                                    font.pointSize: 12
+                                    Layout.fillWidth: true
+                                    elide: Text.ElideRight
+                                }
+                                Text {
+                                    text: mainPage.selectedFormat ? (qsTr("文件格式: ") + mainPage.selectedFormat) : ""
+                                    color: textSecondary
+                                    font.pointSize: 11
+                                    Layout.fillWidth: true
+                                    horizontalAlignment: Text.AlignLeft
+                                }
+                                Rectangle { height: 1; color: borderColor; Layout.fillWidth: true }
+                                Flickable {
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    contentWidth: parent.width
+                                    clip: true
+                                    Text {
+                                        id: previewText
+                                        text: mainPage.selectedContent || qsTr("(空)")
+                                        color: textSecondary
+                                        font.pointSize: 12
+                                        wrapMode: Text.WordWrap
+                                        width: previewBox.width - 24
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 空状态提示
+                Text {
+                    x: (parent.width - width) / 2
+                    y: (parent.height - height) / 2
+                    font.pointSize: 16
+                    color: textMuted
+                    visible: resultListView.count === 0 && !(searchVM.isLoading || false)
+                    text: qsTr("暂无匹配结果")
+                }
+                Text {
+                    x: (parent.width - width) / 2
+                    y: (parent.height - height) / 2
+                    font.pointSize: 16
+                    color: textSecondary
+                    visible: searchVM.isLoading || false
+                    text: qsTr("正在加载配置文件...")
+                }
+            }
+
+            // ===== 底部状态栏 =====
+            Rectangle {
+                Layout.fillWidth: true
+                height: 36
+                color: "#0b1222"
+                radius: 0
+
+                // 顶部分割线
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    height: 1
+                    color: borderColor
+                }
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 20
+                    anchors.rightMargin: 20
+
+                    // 左侧小蓝点指示
+                    Rectangle { width: 6; height: 6; radius: 3; color: primaryColor }
+                    Text {
+                        text: qsTr("就绪")
+                        color: textSecondary
+                        font.pointSize: 10
+                    }
+                    Item { Layout.fillWidth: true }
+                    Text {
+                        text: qsTr("共 %1 个配置项 | 匹配 %2 个").arg(searchVM.searchResults ? searchVM.searchResults.length : 0).arg(searchVM.searchResults ? searchVM.searchResults.length : 0)
+                        anchors.verticalCenter: parent.verticalCenter
+                        font.pointSize: 10
+                        color: textSecondary
+                        horizontalAlignment: Text.AlignRight
                     }
                 }
             }
         }
     }
 
-    // 详情对话框
-    Dialog {
-        id: detailDialog
-        modal: true
-        width: 500
-        height: 400
-        parent: Overlay.overlay
-        background: Rectangle { color: cardBg; border.color: primaryColor; border.width: 2; radius: 10 }
-        header: Text { text: selectedTitle; color: primaryColor; font.bold: true; anchors.centerIn: parent }
-        contentItem: ScrollView {
-            Text { text: selectedContent; color: textColor; wrapMode: Text.Wrap; width: parent.width }
-        }
-        footer: Button {
-            text: "关闭"
-            onClicked: detailDialog.close()
-            background: Rectangle { color: primaryColor; radius: 6 }
-            contentItem: Text { text: "关闭"; color: "#000"; anchors.centerIn: parent }
+    // ===== 关于弹窗 =====
+    Rectangle {
+        id: aboutOverlay
+        anchors.fill: parent
+        color: "#000000AA"
+        visible: mainPage.aboutVisible
+        z: 999
+        MouseArea { anchors.fill: parent; onClicked: mainPage.aboutVisible = false }
+        Rectangle {
+            id: aboutBox
+            width: 440
+            height: aboutContent.implicitHeight + 40
+            anchors.centerIn: parent
+            radius: 16
+            color: cardColor
+            border.color: borderColor
+            border.width: 1
+            ColumnLayout {
+                id: aboutContent
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 24
+                spacing: 10
+
+                // Logo
+                Rectangle {
+                    Layout.alignment: Qt.AlignHCenter
+                    width: 56; height: 56; radius: 28
+                    color: primaryColor
+                    Text { text: "CW"; anchors.centerIn: parent; color: "#FFFFFF"; font.pointSize: 18; font.bold: true }
+                }
+
+                Text {
+                    text: mainPage.appName
+                    font.pointSize: 16
+                    color: textPrimary
+                    font.bold: true
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+                Text {
+                    text: qsTr("版本：") + mainPage.appVersion
+                    color: textSecondary
+                    font.pointSize: 12
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+                Text {
+                    text: qsTr("最近编译时间：") + mainPage.buildTime
+                    color: textSecondary
+                    font.pointSize: 12
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+                Text {
+                    text: qsTr("作者：") + mainPage.appAuthor
+                    color: textSecondary
+                    font.pointSize: 11
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+                Item { Layout.fillHeight: true }
+                RowLayout { Layout.alignment: Qt.AlignHCenter
+                    Button {
+                        text: qsTr("关闭")
+                        onClicked: mainPage.aboutVisible = false
+                        Layout.preferredWidth: 100
+                        Layout.preferredHeight: 36
+                        background: Rectangle { radius: 10; color: primaryColor }
+                        contentItem: Text { text: parent.text; color: "#FFFFFF"; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.bold: true }
+                    }
+                }
+            }
         }
     }
 
-    // 关于对话框
-    Dialog {
-        id: aboutDialog
-        modal: true
-        width: 400
-        height: 300
-        parent: Overlay.overlay
-        visible: aboutVisible
-        onVisibleChanged: if (!visible) aboutVisible = false
-        title: "关于"
-        standardButtons: Dialog.Close
-        background: Rectangle { color: cardBg; border.color: accentColor; border.width: 2; radius: 10 }
-        contentItem: ColumnLayout {
-            Text { text: "ConfigWatcher"; color: primaryColor; font.pixelSize: 24; font.bold: true }
-            Text { text: "AOI 属性快搜系统"; color: textMuted }
+    // ===== 翻译管理弹窗 =====
+    Rectangle {
+        id: translationsOverlay
+        anchors.fill: parent
+        color: "#000000AA"
+        visible: mainPage.translationsVisible
+        z: 1000
+        MouseArea { anchors.fill: parent; onClicked: mainPage.translationsVisible = false }
+
+        Rectangle {
+            id: transBox
+            width: Math.min(parent.width - 80, 760)
+            height: Math.min(parent.height - 120, 520)
+            anchors.centerIn: parent
+            radius: 16
+            color: cardColor
+            border.color: borderColor
+            border.width: 1
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 16
+                spacing: 10
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 12
+                    Text { text: qsTr("翻译管理"); color: textPrimary; font.pointSize: 16; font.bold: true; Layout.alignment: Qt.AlignLeft }
+                    Item { Layout.fillWidth: true }
+                    Button { text: qsTr("刷新"); onClicked: reloadTranslations(); background: Rectangle { color: surfaceColor; radius: 10; border.color: borderColor; border.width: 1 } contentItem: Text { text: parent.text; color: textPrimary; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter } }
+                    Button { text: qsTr("应用翻译"); onClicked: { DB.applyTranslationsToParameters(); reloadTranslations(); } background: Rectangle { color: primaryColor; radius: 10 } contentItem: Text { text: parent.text; color: "#FFFFFF"; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter; font.bold: true } }
+                    Button { text: qsTr("关闭"); onClicked: mainPage.translationsVisible = false; background: Rectangle { color: surfaceColor; radius: 10; border.color: borderColor; border.width: 1 } contentItem: Text { text: parent.text; color: textPrimary; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter } }
+                }
+
+                ListModel { id: translationListModel }
+
+                Flickable {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: parent.height - 120
+                    contentWidth: parent.width
+                    clip: true
+
+                    Column {
+                        id: listColumn
+                        width: parent.width
+                        spacing: 6
+                        Repeater {
+                            model: translationListModel
+                            delegate: Rectangle {
+                                width: parent.width - 24
+                                height: 46
+                                radius: 10
+                                color: surfaceColor
+                                border.color: borderColor
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: 10
+                                    spacing: 8
+                                    Text { text: model.key; color: textSecondary; font.pointSize: 12; Layout.preferredWidth: 220; elide: Text.ElideRight }
+                                    TextField {
+                                        id: tf
+                                        text: model.chinese
+                                        placeholderText: qsTr("输入中文翻译...")
+                                        Layout.fillWidth: true
+                                        height: 32
+                                        color: textPrimary
+                                        background: Rectangle { color: cardColor; radius: 8; border.color: borderColor; border.width: 1 }
+                                        onAccepted: {
+                                            DB.setTranslation(model.key, text)
+                                            translationListModel.setProperty(index, "chinese", text)
+                                        }
+                                    }
+                                    Button {
+                                        text: qsTr("保存")
+                                        onClicked: { DB.setTranslation(model.key, tf.text); translationListModel.setProperty(index, "chinese", tf.text) }
+                                        Layout.preferredWidth: 64
+                                        height: 32
+                                        background: Rectangle { color: primaryColor; radius: 8 }
+                                        contentItem: Text { text: parent.text; color: "#FFFFFF"; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Component.onCompleted: reloadTranslations()
+                function reloadTranslations() {
+                    translationListModel.clear()
+                    var arr = []
+                    try { arr = DB.listTranslations() } catch(e) { arr = [] }
+                    for (var i=0;i<arr.length;i++) { translationListModel.append({ key: arr[i].key, chinese: arr[i].chinese }) }
+                }
+            }
         }
     }
 
-    function doSearch() {
-        searchVM.searchText = searchField.text
-        searchVM.searchMode = searchModeCombo.currentIndex
-        searchVM.updateSearchResults()
+    ListModel { id: suggestModel }
+    Popup {
+        id: suggestionsPopup
+        z: 10000
+        parent: mainPage
+        modal: false
+        focus: true
+        width: Math.min(contentCard.width * 0.6, 560)
+        height: 320
+        visible: mainPage.suggestionsVisible
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        anchors.centerIn: parent
+
+        Component.onCompleted: {
+            console.log("[QML] suggestionsPopup ready, z=", suggestionsPopup.z)
+            console.log("[QML] popup size:", width, "x", height)
+        }
+
+        Rectangle {
+            id: suggestionsShadow
+            anchors.fill: parent
+            anchors.margins: 6
+            color: "#00000055"
+            radius: 18
+            z: 0
+        }
+
+        Rectangle {
+            id: suggestionsBg
+            anchors.fill: parent
+            color: cardColor
+            radius: 16
+            border.color: borderColor
+            border.width: 1
+            z: 1
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 16
+                spacing: 10
+
+                Text {
+                    text: qsTr("联想结果")
+                    color: textPrimary
+                    font.pointSize: 16
+                    font.bold: true
+                    Layout.fillWidth: true
+                }
+
+                ListView {
+                    id: suggestListView
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    model: suggestModel
+                    clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+                    spacing: 10
+                    ScrollBar.vertical: ScrollBar {
+                        policy: ScrollBar.AlwaysOn
+                        width: 6
+                        anchors.right: parent.right
+                        visible: suggestListView.contentHeight > suggestListView.height
+                    }
+
+                    delegate: Rectangle {
+                        width: suggestListView.width
+                        color: surfaceColor
+                        radius: 12
+                        border.color: borderColor
+                        border.width: 1
+                        property var clusterData: model
+                        property string clusterName: clusterData.cluster || clusterData.k || ""
+                        property var clusterItems: (function() {
+                            try {
+                                if (clusterData.items && Array.isArray(clusterData.items)) return clusterData.items
+                                if (clusterData.itemsJson) return JSON.parse(clusterData.itemsJson)
+                            } catch(e) {
+                                console.warn("解析cluster items失败:", e)
+                            }
+                            return clusterData.k ? [clusterData.k] : []
+                        })()
+
+                        implicitHeight: clusterContent.implicitHeight + 20
+
+                        ColumnLayout {
+                            id: clusterContent
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 8
+
+                            Text {
+                                text: clusterName || qsTr("未命名聚类")
+                                color: textPrimary
+                                font.pointSize: 13
+                                font.bold: true
+                                Layout.fillWidth: true
+                                wrapMode: Text.NoWrap
+                                elide: Text.ElideRight
+                            }
+
+                            Column {
+                                id: itemsColumn
+                                width: parent.width
+                                spacing: 6
+
+                                Repeater {
+                                    model: clusterItems
+                                    delegate: Rectangle {
+                                        width: parent.width
+                                        height: 40
+                                        color: cardColor
+                                        radius: 8
+                                        border.color: borderColor
+                                        border.width: 1
+
+                                        RowLayout {
+                                            anchors.fill: parent
+                                            anchors.margins: 8
+                                            spacing: 8
+                                            Layout.preferredHeight: parent.height
+
+                                            Text {
+                                                text: modelData || ""
+                                                color: textPrimary
+                                                font.pointSize: 12
+                                                Layout.preferredWidth: Math.max(0, parent.width - 160)
+                                                elide: Text.ElideRight
+                                                verticalAlignment: Text.AlignVCenter
+                                            }
+
+                                            Button {
+                                                text: qsTr("填充")
+                                                Layout.preferredWidth: 60
+                                                Layout.alignment: Qt.AlignVCenter
+                                                height: 28
+                                                onClicked: {
+                                                    searchField.text = modelData || "";
+                                                    mainPage.selectedTitle = qsTr("键: ") + (modelData || "");
+                                                    mainPage.selectedContent = "";
+                                                    mainPage.suggestionsVisible = false;
+                                                    suggestModel.clear();
+                                                }
+                                                background: Rectangle {
+                                                    radius: 8; color: "#1e3a5f"; border.color: "#2563EB"; border.width: 1
+                                                }
+                                                contentItem: Text { text: parent.text; color: "#60a5fa"; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter; font.pointSize: 11 }
+                                            }
+
+                                            Button {
+                                                text: qsTr("搜索")
+                                                Layout.preferredWidth: 60
+                                                Layout.alignment: Qt.AlignVCenter
+                                                height: 28
+                                                onClicked: {
+                                                    searchField.text = modelData || "";
+                                                    searchVM.searchText = modelData || "";
+                                                    searchVM.updateSearchResults();
+                                                    mainPage.suggestionsVisible = false;
+                                                    suggestModel.clear();
+                                                }
+                                                background: Rectangle { radius: 8; color: primaryColor }
+                                                contentItem: Text { text: parent.text; color: "#FFFFFF"; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter; font.pointSize: 11; font.bold: true }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.alignment: Qt.AlignRight
+                    Layout.fillWidth: true
+                    anchors.margins: 8
+
+                    Button {
+                        text: qsTr("关闭")
+                        onClicked: {
+                            mainPage.suggestionsVisible = false;
+                            suggestModel.clear();
+                            suggestionsPopup.close();
+                        }
+                        Layout.preferredWidth: 80
+                        height: 34
+                        background: Rectangle {
+                            radius: 10;
+                            color: surfaceColor;
+                            border.color: borderColor;
+                            border.width: 1
+                        }
+                        contentItem: Text {
+                            text: parent.text;
+                            color: textPrimary;
+                            anchors.fill: parent;
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Connections {
+        target: searchVM
+        function onSuggestClustersReady(clusters) {
+            console.log("[QML] onSuggestClustersReady received, clusters len:", clusters ? clusters.length : 0)
+            try { 
+                console.log("[QML] clusters preview:", JSON.stringify(clusters && clusters.length ? clusters.slice(0,3) : clusters)) 
+            } catch(e) {}
+            
+            suggestModel.clear()
+            if (!clusters || !Array.isArray(clusters)) { 
+                mainPage.suggestionsVisible = false; 
+                return 
+            }
+
+            for (var ci=0; ci<clusters.length; ++ci) {
+                var c = clusters[ci] || {}
+                var items = c.items || []
+                var cleanItems = []
+                if (Array.isArray(items)) {
+                    for (var ji=0; ji<items.length; ++ji) {
+                        cleanItems.push(items[ji] === null || typeof items[ji] === 'undefined' ? "" : String(items[ji]));
+                    }
+                }
+                suggestModel.append({ 
+                    cluster: c.cluster || "", 
+                    items: cleanItems,
+                    itemsJson: JSON.stringify(cleanItems),
+                    k: c.k || ""
+                })
+            }
+
+            try {
+                console.log("[QML] suggestModel.count=", suggestModel.count)
+                for (var ii=0; ii<suggestModel.count; ++ii) {
+                    var item = suggestModel.get(ii);
+                    console.log("[QML] suggestModel[", ii, "]=", JSON.stringify({
+                        cluster: item.cluster,
+                        itemsLength: item.items ? item.items.length : 0,
+                        itemsJson: item.itemsJson
+                    }))
+                }
+            } catch(e) { 
+                console.warn("调试输出model失败:", e) 
+            }
+
+            mainPage.suggestionsVisible = suggestModel.count > 0
+            if (mainPage.suggestionsVisible) {
+                if (!suggestionsPopup.opened) {
+                    suggestionsPopup.open();
+                    console.log("[QML] 弹窗已打开，visible=", suggestionsPopup.visible)
+                }
+            } else {
+                if (suggestionsPopup.opened) {
+                    suggestionsPopup.close();
+                }
+            }
+        }
+    }
+
+    Connections {
+        target: mainPage
+        function onOpenFileRequested(filePath) {
+            console.log("[QML] openFileRequested ->", filePath)
+            if (typeof searchVM.openFileRequested === 'function') {
+                searchVM.openFileRequested(filePath)
+            } else if (typeof searchVM.openConfigFile === 'function') {
+                searchVM.openConfigFile(filePath)
+            } else {
+                console.warn("searchVM 未暴露打开文件函数")
+            }
+        }
+    }
+
+    Shortcut { sequence: "Ctrl+R"; onActivated: suggestBtn.clicked() }
+
+    property var lastClusters: []
+
+    Column {
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.top: parent.top
+        anchors.topMargin: 12
+        spacing: 6
+        Text { id: debugKeyCount; visible: false }
+        Text { id: debugClusters; visible: false }
+    }
+
+    // ===== 设置弹窗 =====
+    Rectangle {
+        id: settingsOverlay
+        anchors.fill: parent
+        color: "#000000AA"
+        visible: mainPage.settingsVisible
+        z: 1001
+        MouseArea { anchors.fill: parent; onClicked: mainPage.settingsVisible = false }
+
+        Rectangle {
+            id: settingsBox
+            width: Math.min(parent.width - 120, 820)
+            height: Math.min(parent.height - 140, 520)
+            anchors.centerIn: parent
+            radius: 16
+            color: cardColor
+            border.color: borderColor
+            border.width: 1
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 16
+                spacing: 10
+
+                RowLayout { Layout.fillWidth: true; spacing: 12
+                    Text { text: qsTr("设置 - 编辑配置文件"); color: textPrimary; font.pointSize: 16; font.bold: true; Layout.alignment: Qt.AlignLeft }
+                    Item { Layout.fillWidth: true }
+                    Button {
+                        id: chooseFileBtn
+                        text: qsTr("选择文件")
+                        onClicked: {
+                            console.log("populate file list from DB")
+                            if (DB && typeof DB.listFiles === 'function') {
+                                var files = DB.listFiles()
+                                fileModel.clear()
+                                for (var i=0; i<files.length; i++) {
+                                    var p = files[i].path || ""
+                                    var name = p.split('/').pop() || p
+                                    name = name.replace(/\.[^/.]+$/, "")
+                                    fileModel.append({ path: p, format: files[i].format, display: name })
+                                    console.log("DB.listFiles item:", files[i].path, files[i].format, "->", name)
+                                }
+                                if (fileModel.count > 0) {
+                                    var first = fileModel.get(0)
+                                    if (first && first.path) {
+                                        settingsFilePath = first.path
+                                        loadSettingsFromFile(settingsFilePath)
+                                    } else {
+                                        console.warn('first file entry missing path')
+                                    }
+                                    try { fileComboBox.currentIndex = 0 } catch(e) {}
+                                }
+                            } else {
+                                console.log('DB.listFiles not available; please rebuild the app')
+                            }
+                        }
+                        background: Rectangle { color: surfaceColor; radius: 10; border.color: borderColor; border.width: 1 }
+                        contentItem: Text { text: parent.text; color: textPrimary; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter }
+                    }
+                    ComboBox {
+                        id: fileComboBox
+                        model: fileModel
+                        Layout.preferredWidth: 420
+                        textRole: "display"
+                        currentIndex: -1
+
+                        background: Rectangle {
+                            color: surfaceColor
+                            radius: 10
+                            border.color: borderColor
+                            border.width: 1
+                        }
+                        contentItem: Text {
+                            text: fileComboBox.currentText || qsTr("未选择")
+                            color: textPrimary
+                            verticalAlignment: Text.AlignVCenter
+                            elide: Text.ElideMiddle
+                            anchors.left: parent.left
+                            anchors.leftMargin: 10
+                        }
+
+                        popup: Popup {
+                            x: fileComboBox.x
+                            y: fileComboBox.y + fileComboBox.height
+                            implicitWidth: fileComboBox.width
+                            contentItem: ScrollView {
+                                implicitWidth: fileComboBox.width
+                                implicitHeight: Math.min(fileModel.count * 36, 240)
+                                clip: true
+                                ListView {
+                                    id: fileListView
+                                    model: fileModel
+                                    anchors.fill: parent
+                                    delegate: Item {
+                                        width: parent.width
+                                        height: 36
+                                        Rectangle { anchors.fill: parent; color: "transparent" }
+                                        MouseArea { anchors.fill: parent; onClicked: { fileComboBox.currentIndex = index; fileComboBox.close(); } }
+                                        Text {
+                                            text: model.display || (model.path && model.path.split('/').pop().replace(/\.[^/.]+$/, ""))
+                                            elide: Text.ElideRight
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            anchors.left: parent.left
+                                            anchors.leftMargin: 10
+                                            color: textPrimary
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        onCurrentIndexChanged: {
+                            if (currentIndex < 0) return
+                            var it = fileModel.get(currentIndex)
+                            if (it && it.path) {
+                                settingsFilePath = it.path
+                                loadSettingsFromFile(settingsFilePath)
+                            }
+                        }
+                    }
+                    Button { text: qsTr("关闭"); onClicked: mainPage.settingsVisible = false; background: Rectangle { color: surfaceColor; radius: 10; border.color: borderColor; border.width: 1 } contentItem: Text { text: parent.text; color: textPrimary; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter } }
+                }
+
+                Text { text: mainPage.settingsFilePath ? qsTr("文件: ") + mainPage.settingsFilePath : qsTr("未选择文件"); color: textSecondary; font.pointSize: 11; elide: Text.ElideMiddle; Layout.fillWidth: true }
+
+                ScrollView {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: Math.min(settingsModel.count * 48, 360)
+                    clip: true
+                    contentItem: ListView {
+                        id: settingsListView
+                        model: settingsModel
+                        anchors.fill: parent
+                        clip: true
+                        delegate: Rectangle {
+                            width: settingsListView.width - 8
+                            height: 48
+                            radius: 10
+                            color: surfaceColor
+                            border.color: borderColor
+                            RowLayout { anchors.fill: parent; anchors.margins: 8; spacing: 10
+                                Text { text: model.key || ""; color: textSecondary; font.pointSize: 12; Layout.preferredWidth: 260; elide: Text.ElideRight }
+                                TextField {
+                                    id: editField
+                                    text: model.value || ""
+                                    Layout.fillWidth: true
+                                    height: 32
+                                    color: textPrimary
+                                    background: Rectangle { color: surfaceColor; radius: 8; border.color: borderColor; border.width: 1 }
+                                    onAccepted: { settingsModel.setProperty(index, "value", text) }
+                                    onTextChanged: { settingsModel.setProperty(index, "value", text) }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                RowLayout { Layout.fillWidth: true; Layout.alignment: Qt.AlignRight
+                    Button { text: qsTr("保存"); Layout.preferredWidth: 90; height: 36; onClicked: {
+                            if (!mainPage.settingsFilePath) { console.warn("未选择文件"); return; }
+                            var arr = [];
+                            for (var i=0;i<settingsModel.count;i++) { var it = settingsModel.get(i); arr.push({ key: it.key, value: it.value }); }
+                            if (typeof searchVM.writeConfigFile === 'function') {
+                                var ok = searchVM.writeConfigFile(mainPage.settingsFilePath, arr);
+                                console.log("writeConfigFile returned:", ok);
+                                if (ok) {
+                                    try { searchVM.buildKeyIndex(); searchVM.updateSearchResults(); } catch(e) {}
+                                    mainPage.settingsVisible = false;
+                                } else {
+                                    console.warn("保存文件失败")
+                                }
+                            } else {
+                                console.warn('writeConfigFile not available; rebuild the app')
+                            }
+                        } background: Rectangle { color: primaryColor; radius: 10 } contentItem: Text { text: parent.text; color: "#FFFFFF"; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter; font.bold: true } }
+                    Button { text: qsTr("取消"); Layout.preferredWidth: 90; height: 36; onClicked: mainPage.settingsVisible = false; background: Rectangle { color: surfaceColor; radius: 10; border.color: borderColor; border.width: 1 } contentItem: Text { text: parent.text; color: textPrimary; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter } }
+                }
+            }
+        }
+    }
+
+    function loadSettingsFromFile(path) {
+        settingsModel.clear()
+        if (!path || path.length === 0) return
+        var arr = []
+        if (typeof searchVM.readConfigFile === 'function') {
+            try { arr = searchVM.readConfigFile(path) } catch(e) { console.warn('readConfigFile failed', e); arr = [] }
+        } else {
+            console.warn('readConfigFile not available; rebuild the app')
+        }
+        for (var i=0;i<arr.length;i++) { settingsModel.append({ key: arr[i].key || arr[i].k || '', value: arr[i].value || arr[i].v || '' }) }
     }
 }

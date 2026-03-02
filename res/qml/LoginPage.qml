@@ -5,191 +5,289 @@ import ConfigWatcher 1.0
 
 Item {
     id: loginPage
-    // 防护：parent 可能未初始化，使用默认值并在 Component.onCompleted 时再调整
     property int defaultWidth: 800
     property int defaultHeight: 600
-    width: (parent && typeof parent.width !== 'undefined') ? parent.width : defaultWidth
-    height: (parent && typeof parent.height !== 'undefined') ? parent.height : defaultHeight
+    width: (parent && parent.width) ? parent.width : defaultWidth
+    height: (parent && parent.height) ? parent.height : defaultHeight
     property StackView stackView: null
 
-    // ====== 透明背景层 ======
+    // ========== 全屏背景：深色渐变 ==========
     Rectangle {
         anchors.fill: parent
-        color: "transparent"
-        z: -1
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: "#020617" }
+            GradientStop { position: 0.4; color: "#0f172a" }
+            GradientStop { position: 1.0; color: "#020617" }
+        }
+        z: -2
     }
 
-    // 背景图片（半透明）
+    // 背景图（低透明度）
     Image {
         id: bgImage
         anchors.fill: parent
         source: "qrc:/images/login_background.png"
         fillMode: Image.AspectFill
-        opacity: 1.0
-        z: 0
-        onStatusChanged: {
-            if (status === Image.Error) bgImage.visible = false;
+        opacity: 0.12
+        visible: status === Image.Ready
+        z: -1
+    }
+
+    // ========== 左侧品牌区 ==========
+    Item {
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        width: parent.width * 0.55
+
+        ColumnLayout {
+            anchors.centerIn: parent
+            spacing: 16
+            width: parent.width * 0.7
+
+            // Logo 圆标
+            Rectangle {
+                Layout.alignment: Qt.AlignHCenter
+                width: 72; height: 72; radius: 18
+                color: "#2563eb"
+                Text {
+                    text: "CW"
+                    anchors.centerIn: parent
+                    color: "#ffffff"
+                    font.pointSize: 26
+                    font.bold: true
+                }
+            }
+
+            // 主标题
+            Text {
+                text: "ConfigWatcher"
+                font.pointSize: 36
+                font.bold: true
+                color: "#f1f5f9"
+                Layout.alignment: Qt.AlignHCenter
+            }
+
+            // 副标题
+            Text {
+                text: qsTr("AOI 属性快搜 · 高效配置管理")
+                font.pointSize: 15
+                color: "#64748b"
+                Layout.alignment: Qt.AlignHCenter
+            }
+
+            Item { height: 20 }
+
+            // 特性标签
+            Row {
+                Layout.alignment: Qt.AlignHCenter
+                spacing: 12
+
+                Repeater {
+                    model: [qsTr("快速检索"), qsTr("多格式支持"), qsTr("智能联想")]
+                    delegate: Rectangle {
+                        width: tagText.paintedWidth + 24
+                        height: 30
+                        radius: 15
+                        color: "#1e293b"
+                        border.color: "#334155"
+                        border.width: 1
+                        Text {
+                            id: tagText
+                            text: modelData
+                            anchors.centerIn: parent
+                            color: "#94a3b8"
+                            font.pointSize: 11
+                        }
+                    }
+                }
+            }
         }
     }
 
-    // ====== 登录卡片 ======
+    // ========== 右侧登录卡片 ==========
     Rectangle {
         id: loginCard
-        // 使用 loginPage（根 Item）的宽高作为参考，避免 parent 未初始化时出现 undefined
-        width: Math.round(loginPage.width * 0.36 * 0.7 * 0.8)
-        height: Math.round(loginPage.height * 0.62 * 0.7 * 0.8)
-        x: Math.round(loginPage.width - width - 60) // 右侧留 60px 间距
-        y: Math.round((loginPage.height - height) / 2)
-        radius: 18 * 0.7 * 0.8
-        opacity: 0.98
-        color: "#0b1220cc"   // 深色半透明
-        border.color: "#FFFFFFCC" // 白色半透明，显眼
-        border.width: 1.2
+        width: Math.min(Math.round(loginPage.width * 0.34), 380)
+        height: cardContent.implicitHeight + 72
+        anchors.right: parent.right
+        anchors.rightMargin: Math.round(loginPage.width * 0.06)
+        anchors.verticalCenter: parent.verticalCenter
+        radius: 16
+        color: "#0f172a"
+        border.color: "#1e293b"
+        border.width: 1
 
-        // 卡片阴影（简约浅色）
+        // 卡片顶部蓝色装饰条
         Rectangle {
-            anchors.fill: parent
-            radius: 18 * 0.7 * 0.8
-            color: "#000"
-            opacity: 0.28
-            z: -1
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: 3
+            radius: 16
+            color: "#2563eb"
         }
 
         ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: 36 * 0.7 * 0.8
-            spacing: 24 * 0.7 * 0.8
+            id: cardContent
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: 32
+            spacing: 20
 
-            ColumnLayout {
-                Layout.alignment: Qt.AlignCenter
-                spacing: 8 * 0.7
-
-                Text {
-                    text: qsTr("CONFIGWATCHER")
-                    font.pointSize: 30 * 0.7
-                    font.bold: true
-                    color: "#d3d7de"  // 亮银色
-                    Layout.alignment: Qt.AlignHCenter
-                }
-
-                Text {
-                    text: qsTr("AOI属性快搜软件")
-                    font.pointSize: 14 * 0.7
-                    color: "#bfc4cc"
-                    Layout.alignment: Qt.AlignHCenter
-                }
+            // 卡片标题
+            Text {
+                text: qsTr("欢迎登录")
+                font.pointSize: 20
+                font.bold: true
+                color: "#f1f5f9"
+                Layout.alignment: Qt.AlignLeft
+            }
+            Text {
+                text: qsTr("请输入您的账号和密码")
+                font.pointSize: 12
+                color: "#64748b"
+                Layout.alignment: Qt.AlignLeft
+                Layout.bottomMargin: 4
             }
 
+            // 用户名标签 + 输入框
+            Text {
+                text: qsTr("用户名")
+                font.pointSize: 12
+                color: "#94a3b8"
+                Layout.bottomMargin: -14
+            }
             TextField {
                 id: usernameField
-                // 避免对 loginVM.username 做双向绑定导致 binding loop
                 text: ""
                 Component.onCompleted: {
-                    if (loginVM.username !== undefined && loginVM.username !== "") usernameField.text = loginVM.username;
-                    else usernameField.text = "admin";
+                    if (loginVM.username) text = loginVM.username
+                    else text = "admin"
                 }
                 onTextChanged: loginVM.username = text
                 placeholderText: qsTr("请输入用户名")
-                font.pointSize: 15 * 0.7
+                placeholderTextColor: "#475569"
+                font.pointSize: 14
                 Layout.fillWidth: true
-                height: 48 * 0.7
-                color: "#d3d7de"
+                height: 44
+                color: "#e2e8f0"
                 background: Rectangle {
-                    radius: 10 * 0.7
-                    border.color: "#FFFFFFCC"  // 只改边框颜色为白色半透明
-                    border.width: 1.2
-                    color: activeFocus ? "#081221" : "#07101a"
+                    radius: 8
+                    color: "#1e293b"
+                    border.color: usernameField.activeFocus ? "#2563eb" : "#334155"
+                    border.width: usernameField.activeFocus ? 2 : 1
                 }
             }
 
+            // 密码标签 + 输入框
+            Text {
+                text: qsTr("密码")
+                font.pointSize: 12
+                color: "#94a3b8"
+                Layout.bottomMargin: -14
+            }
             TextField {
                 id: passwordField
-                // 同样避免直接绑定 password
-                text: ""
-                Component.onCompleted: {
-                    if (loginVM.password !== undefined) passwordField.text = loginVM.password;
-                }
+                text: loginVM.password || ""
                 onTextChanged: loginVM.password = text
                 placeholderText: qsTr("请输入密码")
-                font.pointSize: 15 * 0.7
+                placeholderTextColor: "#475569"
+                font.pointSize: 14
                 echoMode: TextField.Password
                 Layout.fillWidth: true
-                height: 48 * 0.7
-                color: "#d3d7de"
+                height: 44
+                color: "#e2e8f0"
                 background: Rectangle {
-                    radius: 10 * 0.7
-                    border.color: "#FFFFFFCC"  // 只改边框颜色为白色半透明
-                    border.width: 1.2
-                    color: activeFocus ? "#081221" : "#07101a"
+                    radius: 8
+                    color: "#1e293b"
+                    border.color: passwordField.activeFocus ? "#2563eb" : "#334155"
+                    border.width: passwordField.activeFocus ? 2 : 1
                 }
-                // 更可靠的回车处理（TextField 的 onAccepted）
-                onAccepted: loginButton.onClicked()
+                onAccepted: loginButton.clicked()
             }
 
+            // 记住密码
             RowLayout {
                 Layout.fillWidth: true
-                Layout.alignment: Qt.AlignRight
-                spacing: 8 * 0.7
-
+                spacing: 6
                 CheckBox {
                     id: rememberCheck
                     checked: loginVM.rememberPassword
                     onCheckedChanged: loginVM.rememberPassword = checked
-                    // 缩小复选框显示尺寸
-                    scale: 0.8
-                    Layout.preferredWidth: 18
-                    Layout.preferredHeight: 18
+                    scale: 0.85
                 }
-
                 Text {
                     text: qsTr("记住密码")
-                    font.pointSize: 13 * 0.7
-                    color: "#d3d7de"
-                    verticalAlignment: Text.AlignVCenter
+                    font.pointSize: 12
+                    color: "#64748b"
                 }
+                Item { Layout.fillWidth: true }
             }
 
+            // 登录按钮
             Button {
                 id: loginButton
-                text: qsTr("登 录")
-                font.pointSize: 16 * 0.7
+                text: qsTr("登  录")
+                font.pointSize: 15
                 font.bold: true
-                height: 44  // 增高按钮
-                Layout.alignment: Qt.AlignHCenter
-                Layout.fillWidth: true   // 宽度与登陆框一致
+                height: 48
+                Layout.fillWidth: true
                 background: Rectangle {
-                    radius: 10
-                    color: "#00000088" // 黑色半透明
-                    border.color: "#FFFFFFCC" // 白色半透明，更显眼
-                    border.width: 1.6
+                    radius: 8
+                    color: loginButton.pressed ? "#1d4ed8" : (loginButton.hovered ? "#3b82f6" : "#2563eb")
                 }
                 contentItem: Text {
                     text: parent.text
-                    font.pointSize: parent.font.pointSize
-                    font.bold: parent.font.bold
-                    color: "#d3d7de" // 亮银色文字
+                    color: "#ffffff"
+                    font.bold: true
+                    font.pointSize: 15
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
-                    anchors.fill: parent
                 }
                 onClicked: {
-                    if (loginVM.checkLogin() && stackView) {
-                        stackView.push("qrc:/qml/MainPage.qml");
+                    console.log("登录按钮被点击");
+                    console.log("用户名:", usernameField.text);
+                    console.log("密码:", passwordField.text);
+                    console.log("stackView:", stackView);
+                    var result = loginVM.checkLogin();
+                    console.log("checkLogin 结果:", result);
+                    if (result && stackView) {
+                        console.log("准备跳转到主页面...");
+                        try {
+                            stackView.push("qrc:/qml/MainPage.qml");
+                            console.log("跳转成功");
+                        } catch(e) {
+                            console.log("跳转失败:", e);
+                        }
+                    } else {
+                        console.log("登录失败或 stackView 为空");
                     }
                 }
             }
 
+            // 错误信息
             Text {
                 text: loginVM.errorMessage
-                font.pointSize: 13 * 0.7
-                color: "#e53935"
+                font.pointSize: 12
+                color: "#ef4444"
                 Layout.alignment: Qt.AlignCenter
-                visible: text !== ""
+                visible: text !== "" && text !== undefined
             }
         }
     }
 
-    // ====== 视图模型 ======
+    // ========== 底部版权 ==========
+    Text {
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 16
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: "© 2026 ConfigWatcher"
+        font.pointSize: 11
+        color: "#334155"
+    }
+
     LoginViewModel {
         id: loginVM
     }

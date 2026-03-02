@@ -1,6 +1,7 @@
 #include "searchviewmodel.h"
 #include "databasemanager.h"
 #include "configentry.h"
+#include "aiservice.h"
 #include <QQmlEngine>
 #include <QtConcurrent>
 #include <QFuture>
@@ -13,32 +14,20 @@
 #include <QSettings>
 #include <QJsonObject>
 #include <QCoreApplication>
-#include <QFileDialog>
-#include <QDesktopServices>
-#include <QUrl>
-#include <QMutexLocker>
 
-SearchViewModel::SearchViewModel(QObject *parent) 
-    : QObject(parent)
-    , m_parser(new ConfigParser(this))
+SearchViewModel::SearchViewModel(QObject *parent) : QObject(parent)
 {
-    connect(m_parser, &ConfigParser::loadFinished, this, [this]() {
+    m_parser = new ConfigParser(this);
+    m_aiService = new AiService(this);
+
+    connect(m_parser, &ConfigParser::loadFinished, this, [=]() {
         setIsLoading(false);
         updateSearchResults();
     });
 
-    connect(m_parser, &ConfigParser::loadProgress, this, [this](int progress) {
+    connect(m_parser, &ConfigParser::loadProgress, this, [=](int progress) {
         setLoadProgress(progress);
     });
-    
-    connect(m_parser, &ConfigParser::errorOccurred, this, &SearchViewModel::onParserError);
-}
-
-SearchViewModel::~SearchViewModel()
-{
-    QMutexLocker locker(&m_resultsMutex);
-    m_searchResults.clear();
-    m_allSearchResults.clear();
 }
 
 void SearchViewModel::setSearchText(const QString& text)
@@ -46,18 +35,11 @@ void SearchViewModel::setSearchText(const QString& text)
     if (m_searchText == text) return;
     m_searchText = text;
     emit searchTextChanged();
-    // 不立即搜索，等待用户按回车或点击搜索按钮
+    updateSearchResults();
 }
 
-QVariantList SearchViewModel::searchResults() const
+void SearchViewModel::setSearchResults(const QList<QObject*>& results)
 {
-    QMutexLocker locker(&m_resultsMutex);
-    return m_searchResults;
-}
-
-void SearchViewModel::setSearchResults(const QVariantList& results)
-{
-    QMutexLocker locker(&m_resultsMutex);
     m_searchResults = results;
     emit searchResultsChanged();
 }
@@ -76,49 +58,9 @@ void SearchViewModel::setLoadProgress(int progress)
     emit loadProgressChanged();
 }
 
-void SearchViewModel::setSearchMode(int mode)
-{
-    if (m_searchMode == mode) return;
-    m_searchMode = mode;
-    emit searchModeChanged();
-}
-
-void SearchViewModel::setCurrentPage(int page)
-{
-    if (m_currentPage == page) return;
-    m_currentPage = qMax(0, qMin(page, m_totalPages - 1));
-    emit currentPageChanged();
-    updatePaginatedResults();
-}
-
-void SearchViewModel::setTotalPages(int pages)
-{
-    if (m_totalPages == pages) return;
-    m_totalPages = pages;
-    emit totalPagesChanged();
-}
-
-void SearchViewModel::nextPage()
-{
-    if (m_currentPage < m_totalPages - 1) {
-        setCurrentPage(m_currentPage + 1);
-    }
-}
-
-void SearchViewModel::previousPage()
-{
-    if (m_currentPage > 0) {
-        setCurrentPage(m_currentPage - 1);
-    }
-}
-
-void SearchViewModel::goToPage(int page)
-{
-    setCurrentPage(page);
-}
-
 QString SearchViewModel::selectDirectory()
 {
+    // 固定搜索路径为 $HOME/.config/Leichen
     QString home = QString::fromLocal8Bit(qgetenv("HOME"));
     return home + "/.config/Leichen";
 }
@@ -137,55 +79,58 @@ void SearchViewModel::openConfigFile(const QString& filePath)
 
 void SearchViewModel::updateSearchResults()
 {
-    // 优先使用数据库搜索
+    // Prefer database-backed search if DB is initialized
     DatabaseManager* db = DatabaseManager::instance();
     if (db) {
-        QVariantList list = db->searchParameters(m_searchText, m_searchMode);
-        m_allSearchResults = list;
-        setTotalPages((list.size() + m_pageSize - 1) / m_pageSize);
-        setCurrentPage(0);
+        QVariantList list = db->searchParameters(m_searchText, 0);
+        QList<QObject*> objResults;
+        for (const QVariant& item : list) {
+            // If DatabaseManager already returned QObject wrapped in QVariant, use it
+            if (item.canConvert<QObject*>()) {
+                QObject* obj = item.value<QObject*>();
+                if (obj) {
+                    objResults.append(obj);
+                    continue;
+                }
+            }
+            QVariantMap m = item.toMap();
+            ConfigEntry* e = new ConfigEntry(this);
+            // Fill fields with fallbacks
+            e->setKey(m.value("key").toString());
+            e->setValue(m.value("value").toString());
+            e->setChineseKey(m.value("chinese").toString());
+            e->setFilePath(m.value("filePath").toString());
+            // optional fields
+            if (!m.value("format").toString().isEmpty()) e->setFormat(m.value("format").toString());
+            objResults.append(e);
+        }
+        setSearchResults(objResults);
         return;
     }
 
-    // 回退到内存搜索
-    auto results = m_parser->search(m_searchText);
-    QVariantList list;
-    for (const auto& entry : results) {
-        list.append(entryToMap(entry));
+    // Fallback to in-memory parser search
+    QList<ConfigEntry*> results = m_parser->search(m_searchText);
+    QList<QObject*> objResults;
+
+    for (ConfigEntry* entry : results) {
+        // ensure parent ownership so QML can access
+        if (!entry->parent()) entry->setParent(this);
+        objResults.append(entry);
     }
-    
-    m_allSearchResults = list;
-    setTotalPages((list.size() + m_pageSize - 1) / m_pageSize);
-    setCurrentPage(0);
-}
 
-void SearchViewModel::updatePaginatedResults()
-{
-    int start = m_currentPage * m_pageSize;
-    int end = qMin(start + m_pageSize, m_allSearchResults.size());
-    
-    QVariantList pageResults;
-    for (int i = start; i < end; ++i) {
-        pageResults.append(m_allSearchResults.at(i));
+    setSearchResults(objResults);
+
+    // Save entries into DB if initialized
+    if (!m_dbManager) return;
+    for (ConfigEntry* e : results) {
+        // Defensive checks
+        QString k = e->key();
+        QString v = e->value();
+        QString fp = e->filePath();
+        QString fmt = e->format();
+        QString ck = e->chineseKey();
+        m_dbManager->saveConfigEntry(k, v, fp, fmt, ck);
     }
-    
-    setSearchResults(pageResults);
-}
-
-void SearchViewModel::onParserError(const QString& message)
-{
-    qWarning() << "ConfigParser error:" << message;
-}
-
-QVariantMap SearchViewModel::entryToMap(const QSharedPointer<ConfigEntry>& entry)
-{
-    QVariantMap m;
-    m["key"] = entry->key();
-    m["value"] = entry->value();
-    m["chinese"] = entry->chineseKey();
-    m["filePath"] = entry->filePath();
-    m["format"] = entry->format();
-    return m;
 }
 
 void SearchViewModel::buildKeyIndex()
@@ -223,6 +168,7 @@ QStringList SearchViewModel::suggestKeys(const QString &prefix, int maxResults)
     if (prefix.trimmed().isEmpty()) return out;
     QString p = prefix.toLower();
 
+    // 1) prefix/substring exact match first
     for (const QString &k : m_allKeys) {
         if (k.toLower().startsWith(p) || k.toLower().contains(p)) {
             out.append(k);
@@ -230,6 +176,7 @@ QStringList SearchViewModel::suggestKeys(const QString &prefix, int maxResults)
         }
     }
 
+    // 2) compute small Levenshtein distance for remaining keys
     QVector<QPair<int,QString>> scored;
     for (const QString &k : m_allKeys) {
         if (out.contains(k)) continue;
@@ -250,6 +197,7 @@ QVariantList SearchViewModel::suggestClusters(const QString &prefix, int maxClus
     QVariantList out;
     QString p = prefix.toLower();
 
+    // simple tokenization: split by ., _, - and camelCase boundaries
     auto tokenize = [](const QString &s) {
         QString t = s;
         t.replace('_', ' ');
@@ -259,15 +207,17 @@ QVariantList SearchViewModel::suggestClusters(const QString &prefix, int maxClus
         return parts;
     };
 
+    // score keys by whether they match prefix; group by first token
     QMap<QString, QStringList> groups;
     for (const QString &k : m_allKeys) {
         QString kl = k.toLower();
-        if (!p.isEmpty() && !kl.contains(p)) continue;
+        if (!p.isEmpty() && !kl.contains(p)) continue; // filter to relevant ones
         QStringList tokens = tokenize(k.toLower());
         QString g = tokens.isEmpty() ? QStringLiteral("other") : tokens.first();
         groups[g].append(k);
     }
 
+    // If no filtered groups (prefix empty or no match), fallback to grouping all by first token
     if (groups.isEmpty()) {
         for (const QString &k : m_allKeys) {
             QStringList tokens = tokenize(k.toLower());
@@ -276,6 +226,7 @@ QVariantList SearchViewModel::suggestClusters(const QString &prefix, int maxClus
         }
     }
 
+    // sort groups by size descending
     QList<QPair<int,QString>> order;
     for (auto it = groups.constBegin(); it != groups.constEnd(); ++it) {
         order.append(qMakePair(it.value().size(), it.key()));
@@ -289,6 +240,7 @@ QVariantList SearchViewModel::suggestClusters(const QString &prefix, int maxClus
         QVariantMap gm;
         gm["cluster"] = gname;
         QStringList items = groups.value(gname);
+        // limit items per cluster, sort alphabetically
         std::sort(items.begin(), items.end(), [](const QString &a, const QString &b){ return a.toLower() < b.toLower(); });
         QVariantList iv;
         int cnt = 0;
@@ -307,6 +259,7 @@ QVariantList SearchViewModel::suggestClusters(const QString &prefix, int maxClus
 bool SearchViewModel::initializeDatabase(const QString& dbPath)
 {
     if (m_dbManager) {
+        // already initialized
         return true;
     }
     m_dbManager = new DatabaseManager(this);
@@ -316,17 +269,21 @@ bool SearchViewModel::initializeDatabase(const QString& dbPath)
 void SearchViewModel::requestSuggestClusters(const QString &prefix, int maxClusters, int maxPerCluster)
 {
     if (!m_keyIndexBuilt) buildKeyIndex();
+    // copy keys for thread-safety
     QStringList keys = m_allKeys;
     QString p = prefix.trimmed().toLower();
 
+    // Run heavy clustering in background
     QFuture<QVariantList> future = QtConcurrent::run([keys, p, maxClusters, maxPerCluster]() -> QVariantList {
         QVariantList out;
+        // Parameters
         const int MIN_NGRAM = 2;
         const int MAX_NGRAM = 3;
-        const int MAX_CANDIDATES = 2000;
-        const int MAX_TERMS_PER_DOC = 40;
-        const double SIM_THRESHOLD = 0.22;
+        const int MAX_CANDIDATES = 2000; // cap for performance
+        const int MAX_TERMS_PER_DOC = 40; // trim per-doc terms
+        const double SIM_THRESHOLD = 0.22; // cosine similarity threshold for grouping
 
+        // 1) Build candidate list (filter by prefix if provided)
         QStringList candidates;
         candidates.reserve(keys.size());
         for (const QString &k : keys) {
@@ -341,12 +298,16 @@ void SearchViewModel::requestSuggestClusters(const QString &prefix, int maxClust
 
         int N = candidates.size();
 
+        // Helpers: normalize and generate n-grams
         auto normalize = [](const QString &s)->QString {
             QString t = s;
-            t.replace(QRegExp("([a-z])([A-Z])"), "\\1 \\2");
+            // insert spaces before camelCase boundaries
+            t.replace(QRegExp("([a-z])([A-Z])"), "\\1 \\\\2");
+            // replace separators with space
             t.replace('_', ' ');
             t.replace('-', ' ');
             t.replace('.', ' ');
+            // remove non-alnum except space
             t.replace(QRegExp("[^A-Za-z0-9 ]+"), " ");
             return t.toLower().trimmed();
         };
@@ -355,6 +316,7 @@ void SearchViewModel::requestSuggestClusters(const QString &prefix, int maxClust
             QString t = normalize(s);
             QStringList words = t.split(QRegExp("\\s+"), QString::SkipEmptyParts);
             QStringList ngrams;
+            // for each word generate char n-grams across MIN..MAX
             for (const QString &w : words) {
                 QString ww = w;
                 int L = ww.length();
@@ -363,10 +325,12 @@ void SearchViewModel::requestSuggestClusters(const QString &prefix, int maxClust
                     for (int i = 0; i + n <= L; ++i) ngrams.append(ww.mid(i,n));
                 }
             }
+            // also add whole words as terms
             for (const QString &w : words) ngrams.append("w:" + w);
             return ngrams;
         };
 
+        // 2) Build term frequencies and document frequencies
         QVector<QHash<QString,int>> docTermCounts; docTermCounts.reserve(N);
         QHash<QString,int> docFreq; docFreq.reserve(N*4);
 
@@ -374,6 +338,7 @@ void SearchViewModel::requestSuggestClusters(const QString &prefix, int maxClust
             QStringList terms = makeNgrams(k);
             QHash<QString,int> counts;
             for (const QString &t : terms) counts[t] += 1;
+            // trim to top terms by count to limit vector size
             QList<QPair<int,QString>> pairs;
             for (auto it = counts.constBegin(); it != counts.constEnd(); ++it) pairs.append(qMakePair(it.value(), it.key()));
             std::sort(pairs.begin(), pairs.end(), [](const QPair<int,QString>& a, const QPair<int,QString>& b){ return a.first > b.first; });
@@ -384,14 +349,16 @@ void SearchViewModel::requestSuggestClusters(const QString &prefix, int maxClust
                 if (++added >= MAX_TERMS_PER_DOC) break;
             }
             docTermCounts.append(trimmed);
+            // update DF
             for (auto it = trimmed.constBegin(); it != trimmed.constEnd(); ++it) {
                 docFreq[it.key()] += 1;
             }
         }
 
+        // Vocabulary
         QStringList vocab = docFreq.keys();
-        Q_UNUSED(vocab);
 
+        // 3) Build TF-IDF vectors (sparse maps)
         QVector<QHash<QString,double>> vectors; vectors.reserve(N);
         for (int i=0;i<N;++i) {
             const QHash<QString,int> &cnts = docTermCounts[i];
@@ -403,6 +370,7 @@ void SearchViewModel::requestSuggestClusters(const QString &prefix, int maxClust
                 double idf = log( (double)(N + 1) / (1.0 + docFreq.value(it.key(),1)) );
                 vec.insert(it.key(), tf * idf);
             }
+            // optional: normalize vector length
             double norm = 0.0; for (auto it = vec.constBegin(); it != vec.constEnd(); ++it) norm += it.value()*it.value(); norm = sqrt(norm);
             if (norm > 1e-12) {
                 for (auto it = vec.begin(); it != vec.end(); ++it) it.value() /= norm;
@@ -410,21 +378,26 @@ void SearchViewModel::requestSuggestClusters(const QString &prefix, int maxClust
             vectors.append(vec);
         }
 
+        // 4) Greedy clustering using cosine similarity
         QVector<bool> used(N, false);
         int clustersAdded = 0;
         for (int i=0; i<N && clustersAdded < maxClusters; ++i) {
             if (used[i]) continue;
+            // make i as seed
             used[i] = true;
             QVariantMap cluster;
             cluster["cluster"] = candidates[i];
             QVariantList items; items.append(candidates[i]);
 
+            // compute similarity of seed to all others
             QList<QPair<double,int>> sims;
             for (int j=0;j<N;++j) {
                 if (used[j]) continue;
+                // cosine between vectors[i] and vectors[j]
                 const QHash<QString,double> &a = vectors[i];
                 const QHash<QString,double> &b = vectors[j];
                 double dot = 0.0;
+                // iterate smaller map
                 if (a.size() < b.size()) {
                     for (auto it = a.constBegin(); it != a.constEnd(); ++it) {
                         double bv = b.value(it.key(), 0.0);
@@ -438,10 +411,11 @@ void SearchViewModel::requestSuggestClusters(const QString &prefix, int maxClust
                 }
                 if (dot > 0.0) sims.append(qMakePair(dot, j));
             }
+            // sort descending
             std::sort(sims.begin(), sims.end(), [](const QPair<double,int>& a, const QPair<double,int>& b){ return a.first > b.first; });
             int addedToCluster = 0;
             for (const auto &pr : sims) {
-                if (addedToCluster >= maxPerCluster - 1) break;
+                if (addedToCluster >= maxPerCluster - 1) break; // -1 because seed already included
                 double score = pr.first;
                 int idx = pr.second;
                 if (score >= SIM_THRESHOLD) {
@@ -449,6 +423,7 @@ void SearchViewModel::requestSuggestClusters(const QString &prefix, int maxClust
                     items.append(candidates[idx]);
                     ++addedToCluster;
                 } else {
+                    // if nothing matched threshold, we still may want a few nearest neighbors
                     if (addedToCluster == 0 && items.size()==1) {
                         used[idx] = true;
                         items.append(candidates[idx]);
@@ -457,6 +432,7 @@ void SearchViewModel::requestSuggestClusters(const QString &prefix, int maxClust
                 }
             }
 
+            // build QVariantList for items to ensure QML receives plain string array
             QVariantList qitems;
             for (const QVariant &v : items) qitems.append(v.toString());
             cluster["items"] = qitems;
@@ -464,12 +440,47 @@ void SearchViewModel::requestSuggestClusters(const QString &prefix, int maxClust
             clustersAdded++;
         }
 
+        // write debug log to file (attempt) with timestamp
+        try {
+            QJsonDocument doc = QJsonDocument::fromVariant(QVariant(out));
+            QString json = QString::fromUtf8(doc.toJson(QJsonDocument::Compact));
+            // use user home directory instead of root to avoid permission issues
+            QString logDir = QDir::homePath() + "/.aoi/log";
+            QDir().mkpath(logDir);
+            QFile f(logDir + "/configwatcher.log");
+            if (f.open(QIODevice::Append | QIODevice::Text)) {
+                QTextStream ts(&f);
+                ts << QDateTime::currentDateTime().toString(Qt::ISODate) << " PREFIX=" << p << " CANDIDATES=" << candidates.size() << " CLUSTERS=" << out.size() << "\n";
+                ts << json << "\n---\n";
+                f.close();
+            }
+        } catch (...) {
+            // swallow logging errors
+        }
+
         return out;
     });
 
+    // Watcher to emit signal when ready
     QFutureWatcher<QVariantList>* watcher = new QFutureWatcher<QVariantList>(this);
     connect(watcher, &QFutureWatcher<QVariantList>::finished, this, [this, watcher]() {
         QVariantList res = watcher->result();
+        // log delivered result briefly
+        try {
+            QJsonDocument doc = QJsonDocument::fromVariant(QVariant(res));
+            QString json = QString::fromUtf8(doc.toJson(QJsonDocument::Compact));
+            QString logDir = QDir::homePath() + "/.aoi/log";
+            QDir().mkpath(logDir);
+            QFile f(logDir + "/configwatcher.log");
+            if (f.open(QIODevice::Append | QIODevice::Text)) {
+                QTextStream ts(&f);
+                ts << QDateTime::currentDateTime().toString(Qt::ISODate) << " DELIVERED_CLUSTERS=" << res.size() << "\n";
+                ts << json.left(2000) << "\n---\n"; // cap large dumps
+                f.close();
+            }
+        } catch (...) {}
+
+        qDebug() << "suggestClustersReady: size=" << res.size();
         emit suggestClustersReady(res);
         watcher->deleteLater();
     });
@@ -478,6 +489,7 @@ void SearchViewModel::requestSuggestClusters(const QString &prefix, int maxClust
 
 void SearchViewModel::deliverSuggestClusters(const QVariantList &clusters)
 {
+    // This slot can be used by QML connected signal to directly deliver clusters
     Q_UNUSED(clusters);
 }
 
@@ -487,8 +499,10 @@ void SearchViewModel::openFileRequested(const QString &filePath)
         qWarning() << "openFileRequested called with empty filePath";
         return;
     }
+    // 防御性：如果路径不是绝对路径，尝试构造为相对于HOME的路径
     QString fp = filePath;
     if (!QFile::exists(fp)) {
+        // 尝试直接用 home 路径前缀
         QString alt = QDir::homePath() + "/" + filePath;
         if (QFile::exists(alt)) fp = alt;
     }
@@ -522,9 +536,8 @@ QVariantList SearchViewModel::readConfigFile(const QString &filePath)
         }
     } else if (suffix == "json") {
         QByteArray data = f.readAll();
-        QJsonParseError error;
-        QJsonDocument doc = QJsonDocument::fromJson(data, &error);
-        if (error.error == QJsonParseError::NoError && doc.isObject()) {
+        QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (doc.isObject()) {
             QJsonObject obj = doc.object();
             for (auto it = obj.begin(); it != obj.end(); ++it) {
                 QVariantMap m; m["key"] = it.key(); m["value"] = it.value().toString(); out.append(m);
@@ -539,8 +552,7 @@ QString SearchViewModel::pickConfigFile()
 {
     QString home = QString::fromLocal8Bit(qgetenv("HOME"));
     QString dir = home + "/.config/Leichen";
-    QWidget* parentWidget = nullptr;
-    QString file = QFileDialog::getOpenFileName(parentWidget, QObject::tr("选择配置文件"), dir, QObject::tr("Config files (*.ini *.json)"));
+    QString file = QFileDialog::getOpenFileName(nullptr, QObject::tr("选择配置文件"), dir, QObject::tr("Config files (*.ini *.json)"));
     return file;
 }
 
@@ -550,6 +562,7 @@ bool SearchViewModel::writeConfigFile(const QString &filePath, const QVariantLis
     QFile f(filePath);
     if (!f.exists()) return false;
 
+    // 备份原文件
     QString bak = filePath + ".bak";
     QFile::remove(bak);
     if (!QFile::copy(filePath, bak)) {
@@ -560,6 +573,7 @@ bool SearchViewModel::writeConfigFile(const QString &filePath, const QVariantLis
     if (!f.open(QIODevice::WriteOnly | QIODevice::Text)) return false;
 
     if (suffix == "ini") {
+        // 简单实现：把 entries 中的 key 包含 '.' 的视为 section.key，按 section 聚合然后写入
         QMap<QString, QMap<QString,QString>> sections;
         for (const QVariant &v : entries) {
             QVariantMap m = v.toMap();
@@ -593,6 +607,7 @@ bool SearchViewModel::writeConfigFile(const QString &filePath, const QVariantLis
 
     f.close();
 
+    // 同步到数据库：逐条保存
     DatabaseManager* db = DatabaseManager::instance();
     if (db) {
         for (const QVariant &v : entries) {
@@ -603,4 +618,82 @@ bool SearchViewModel::writeConfigFile(const QString &filePath, const QVariantLis
         }
     }
     return true;
+}
+
+// ========== AI 相关方法实现 ==========
+
+void SearchViewModel::setAiEnabled(bool enabled)
+{
+    if (m_aiEnabled != enabled) {
+        m_aiEnabled = enabled;
+        if (m_aiService) {
+            m_aiService->setEnabled(enabled);
+        }
+        emit aiEnabledChanged(enabled);
+    }
+}
+
+void SearchViewModel::analyzeSearchQuery(const QString& query)
+{
+    if (!m_aiEnabled || !m_aiService) return;
+    
+    m_aiIntent = m_aiService->analyzeIntent(query);
+    m_aiConfidence = m_aiService->getIntentConfidence(query);
+    m_aiSuggestions = m_aiService->generateSuggestions(query);
+    m_aiExplanation = m_aiService->explainQuery(query);
+    
+    emit aiIntentChanged();
+    emit aiConfidenceChanged();
+    emit aiSuggestionsChanged();
+    emit aiExplanationChanged();
+}
+
+void SearchViewModel::applyAiSuggestion(const QString& suggestion)
+{
+    if (suggestion.trimmed().isEmpty()) return;
+    
+    setSearchText(suggestion);
+    updateSearchResults();
+}
+
+void SearchViewModel::expandSearchWithAi(const QString& query)
+{
+    if (!m_aiEnabled || !m_aiService) return;
+    
+    QStringList expanded = m_aiService->expandKeywords(query, 10);
+    
+    // 使用扩展的关键词进行搜索
+    QVariantList allResults;
+    for (const QString& keyword : expanded) {
+        DatabaseManager* db = DatabaseManager::instance();
+        if (db) {
+            QVariantList results = db->searchParameters(keyword, 0);
+            allResults.append(results);
+        }
+    }
+    
+    // 去重并转换为 QObject 列表
+    QList<QObject*> objResults;
+    QSet<QString> seenKeys;
+    for (const QVariant& item : allResults) {
+        if (item.canConvert<QObject*>()) {
+            QObject* obj = item.value<QObject*>();
+            if (obj) {
+                ConfigEntry* entry = qobject_cast<ConfigEntry*>(obj);
+                if (entry && !seenKeys.contains(entry->key())) {
+                    seenKeys.insert(entry->key());
+                    if (!entry->parent()) entry->setParent(this);
+                    objResults.append(entry);
+                }
+            }
+        }
+    }
+    
+    setSearchResults(objResults);
+}
+
+QString SearchViewModel::getAiExplanation(const QString& query)
+{
+    if (!m_aiService) return QString();
+    return m_aiService->explainQuery(query);
 }

@@ -5,34 +5,40 @@
 #include <QString>
 #include <QStringList>
 #include <QList>
+#include <QWidget>
+#include <QFileDialog>
+#include <QDesktopServices>
+#include <QUrl>
 #include <QVariantList>
-#include <QMutex>
-#include <QSharedPointer>
 #include "configparser.h"
 #include "configentry.h"
 #include "databasemanager.h"
+#include "aiservice.h"
 
 class SearchViewModel : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(QString searchText READ searchText WRITE setSearchText NOTIFY searchTextChanged)
-    Q_PROPERTY(QVariantList searchResults READ searchResults NOTIFY searchResultsChanged)
+    Q_PROPERTY(QList<QObject*> searchResults READ searchResults NOTIFY searchResultsChanged)
     Q_PROPERTY(bool isLoading READ isLoading NOTIFY isLoadingChanged)
     Q_PROPERTY(int loadProgress READ loadProgress NOTIFY loadProgressChanged)
-    Q_PROPERTY(int searchMode READ searchMode WRITE setSearchMode NOTIFY searchModeChanged)
-    Q_PROPERTY(int currentPage READ currentPage WRITE setCurrentPage NOTIFY currentPageChanged)
-    Q_PROPERTY(int totalPages READ totalPages NOTIFY totalPagesChanged)
-    Q_PROPERTY(int pageSize READ pageSize CONSTANT)
+    Q_PROPERTY(int keyCount READ keyCount NOTIFY keyCountChanged)
+    
+    // AI 相关属性
+    Q_PROPERTY(bool aiEnabled READ aiEnabled WRITE setAiEnabled NOTIFY aiEnabledChanged)
+    Q_PROPERTY(QString aiIntent READ aiIntent NOTIFY aiIntentChanged)
+    Q_PROPERTY(double aiConfidence READ aiConfidence NOTIFY aiConfidenceChanged)
+    Q_PROPERTY(QVariantList aiSuggestions READ aiSuggestions NOTIFY aiSuggestionsChanged)
+    Q_PROPERTY(QString aiExplanation READ aiExplanation NOTIFY aiExplanationChanged)
 
 public:
     explicit SearchViewModel(QObject *parent = nullptr);
-    ~SearchViewModel() override;
 
     QString searchText() const { return m_searchText; }
     void setSearchText(const QString& text);
 
-    QVariantList searchResults() const;
-    void setSearchResults(const QVariantList& results);
+    QList<QObject*> searchResults() const { return m_searchResults; }
+    void setSearchResults(const QList<QObject*>& results);
 
     bool isLoading() const { return m_isLoading; }
     void setIsLoading(bool loading);
@@ -40,43 +46,39 @@ public:
     int loadProgress() const { return m_loadProgress; }
     void setLoadProgress(int progress);
 
-    int searchMode() const { return m_searchMode; }
-    void setSearchMode(int mode);
-
-    int currentPage() const { return m_currentPage; }
-    void setCurrentPage(int page);
-
-    int totalPages() const { return m_totalPages; }
-    void setTotalPages(int pages);
-
-    int pageSize() const { return m_pageSize; }
-
-    Q_INVOKABLE QString pickConfigFile();
-    Q_INVOKABLE QVariantList readConfigFile(const QString& filePath);
-    Q_INVOKABLE bool writeConfigFile(const QString& filePath, const QVariantList& entries);
+    int keyCount() const { return m_allKeys.size(); }
+    
+    // AI 相关方法
+    bool aiEnabled() const { return m_aiEnabled; }
+    void setAiEnabled(bool enabled);
+    
+    QString aiIntent() const { return m_aiIntent; }
+    double aiConfidence() const { return m_aiConfidence; }
+    QVariantList aiSuggestions() const { return m_aiSuggestions; }
+    QString aiExplanation() const { return m_aiExplanation; }
 
     Q_INVOKABLE QString selectDirectory();
     Q_INVOKABLE void loadConfigFiles(const QStringList& filePaths);
     Q_INVOKABLE void openConfigFile(const QString& filePath);
+    Q_INVOKABLE QString pickConfigFile();
+    Q_INVOKABLE QVariantList readConfigFile(const QString& filePath);
+    Q_INVOKABLE bool writeConfigFile(const QString& filePath, const QVariantList& entries);
     Q_INVOKABLE bool initializeDatabase(const QString& dbPath);
     Q_INVOKABLE void buildKeyIndex();
     Q_INVOKABLE QStringList suggestKeys(const QString& prefix, int maxResults = 10);
-    Q_INVOKABLE QVariantList suggestClusters(const QString& prefix, int maxClusters = 8, int maxPerCluster = 8);
+    Q_INVOKABLE QVariantList suggestClusters(const QString &prefix, int maxClusters = 8, int maxPerCluster = 6);
     Q_INVOKABLE void requestSuggestClusters(const QString &prefix, int maxClusters = 8, int maxPerCluster = 6);
-    
-    // 分页控制
-    Q_INVOKABLE void nextPage();
-    Q_INVOKABLE void previousPage();
-    Q_INVOKABLE void goToPage(int page);
-    
-    // 更新分页结果（内部方法）
-    void updatePaginatedResults();
+
+    // AI 增强搜索方法
+    Q_INVOKABLE void analyzeSearchQuery(const QString& query);
+    Q_INVOKABLE void applyAiSuggestion(const QString& suggestion);
+    Q_INVOKABLE void expandSearchWithAi(const QString& query);
+    Q_INVOKABLE QString getAiExplanation(const QString& query);
 
 public slots:
     void updateSearchResults();
     void deliverSuggestClusters(const QVariantList &clusters);
     void openFileRequested(const QString &filePath);
-    void onParserError(const QString& message);
 
 signals:
     void searchTextChanged();
@@ -84,31 +86,33 @@ signals:
     void isLoadingChanged();
     void loadProgressChanged();
     void suggestClustersReady(QVariantList clusters);
-    void searchModeChanged();
-    void currentPageChanged();
-    void totalPagesChanged();
+    void keyCountChanged();
+    void aiEnabledChanged(bool enabled);
+    void aiIntentChanged();
+    void aiConfidenceChanged();
+    void aiSuggestionsChanged();
+    void aiExplanationChanged();
 
 private:
     QString m_searchText;
-    QVariantList m_searchResults;
-    QVariantList m_allSearchResults;  // 缓存全部结果用于分页
+    QList<QObject*> m_searchResults;
     bool m_isLoading = false;
     int m_loadProgress = 0;
-    int m_searchMode = 0;  // 0: 模糊搜索，1: 精准搜索
-    int m_currentPage = 0;
-    int m_totalPages = 0;
-    const int m_pageSize = 100;  // 每页显示 100 条
 
     ConfigParser* m_parser;
     DatabaseManager* m_dbManager = nullptr;
-    mutable QMutex m_resultsMutex;
+    AiService* m_aiService = nullptr;
     
     // suggestion cache
     QStringList m_allKeys;
     bool m_keyIndexBuilt = false;
     
-    // 辅助函数：将 ConfigEntry 转换为 QVariantMap
-    static QVariantMap entryToMap(const QSharedPointer<ConfigEntry>& entry);
+    // AI 状态
+    bool m_aiEnabled = true;
+    QString m_aiIntent;
+    double m_aiConfidence = 0.0;
+    QVariantList m_aiSuggestions;
+    QString m_aiExplanation;
 };
 
 #endif // SEARCHVIEWMODEL_H

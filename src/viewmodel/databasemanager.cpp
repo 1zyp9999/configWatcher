@@ -9,9 +9,8 @@
 #include <QRegularExpression>
 #include <QSqlRecord>
 #include <QDateTime>
-#include <QMutexLocker>
 
-QSharedPointer<DatabaseManager> DatabaseManager::s_instance;
+DatabaseManager* DatabaseManager::s_instance = nullptr;
 
 DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent)
 {
@@ -24,12 +23,12 @@ DatabaseManager::~DatabaseManager()
 
 bool DatabaseManager::openDatabase(const QString& path)
 {
-    QMutexLocker locker(&m_dbMutex);
-    
+    // Ensure directory exists (path is file path)
     QFileInfo fi(path);
     QDir dir = fi.absoluteDir();
     if (!dir.exists()) dir.mkpath(".");
 
+    // Use default connection for now; main creates single instance to avoid duplicates
     m_db = QSqlDatabase::addDatabase("QSQLITE");
     m_db.setDatabaseName(path);
     if (!m_db.open()) {
@@ -41,6 +40,7 @@ bool DatabaseManager::openDatabase(const QString& path)
     q.exec("PRAGMA foreign_keys = ON;");
     q.exec("PRAGMA journal_mode = WAL;");
 
+    // Create schema
     if (!q.exec(
         "CREATE TABLE IF NOT EXISTS files ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -92,8 +92,10 @@ bool DatabaseManager::openDatabase(const QString& path)
     q.exec("CREATE INDEX IF NOT EXISTS idx_parameters_device ON parameters(device);");
     q.exec("CREATE INDEX IF NOT EXISTS idx_sections_file ON sections(file_id);");
 
+    // translations table
     q.exec("CREATE TABLE IF NOT EXISTS translations (key TEXT PRIMARY KEY, chinese TEXT);");
 
+    // FTS5 detection
     bool ftsOk = q.exec(R"(CREATE VIRTUAL TABLE IF NOT EXISTS __fts_test USING fts5(content);)" );
     if (ftsOk) {
         q.exec("DROP TABLE IF EXISTS __fts_test;");
@@ -124,15 +126,14 @@ bool DatabaseManager::openDatabase(const QString& path)
         q.exec(R"(INSERT INTO parameters_fts(rowid, key, raw_value, chinese_name, device) SELECT id, key, raw_value, chinese_name, device FROM parameters WHERE id NOT IN (SELECT rowid FROM parameters_fts);)" );
     }
 
-    s_instance = QSharedPointer<DatabaseManager>(this, [](DatabaseManager*){});  // 不删除，由 Qt 对象树管理
+    s_instance = this;
     return true;
 }
 
 void DatabaseManager::closeDatabase()
 {
-    QMutexLocker locker(&m_dbMutex);
     if (m_db.isOpen()) m_db.close();
-    s_instance.clear();
+    if (s_instance == this) s_instance = nullptr;
 }
 
 int DatabaseManager::ensureFile(const QString& path, const QString& format)
@@ -215,15 +216,12 @@ bool DatabaseManager::upsertParameter(int fileId,
 
 bool DatabaseManager::importIniFile(const QString& filePath, const QString& device)
 {
-    QMutexLocker locker(&m_dbMutex);  // 线程安全保护
-    
     if (!m_db.isOpen()) return false;
     QFile f(filePath);
     if (!f.exists()) { qWarning() << "ini not found:" << filePath; return false; }
     if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) { qWarning() << "open failed:" << filePath; return false; }
 
     QTextStream in(&f);
-    in.setCodec("UTF-8");  // 支持中文
     QString section;
     QRegularExpression listRe(R"((.+)\.(.+)\.(\d+)$)");
 
@@ -259,7 +257,7 @@ bool DatabaseManager::importIniFile(const QString& filePath, const QString& devi
             double n1 = 0, n2 = 0;
             QString vtype = "string";
             QString raw = value;
-            QStringList parts = value.split(',', Qt::SkipEmptyParts);
+            QStringList parts = value.split(',', QString::SkipEmptyParts);
             if (parts.size() == 2) {
                 bool ok1=false, ok2=false;
                 double a = parts[0].toDouble(&ok1);
@@ -294,8 +292,6 @@ bool DatabaseManager::importIniFile(const QString& filePath, const QString& devi
 
 bool DatabaseManager::saveConfigEntry(const QString& key, const QString& value, const QString& filePath, const QString& format, const QString& chineseKey)
 {
-    QMutexLocker locker(&m_dbMutex);
-    
     if (!m_db.isOpen()) return false;
 
     int fileId = ensureFile(filePath, format.isEmpty() ? QStringLiteral("ini") : format);
@@ -309,8 +305,6 @@ bool DatabaseManager::saveConfigEntry(const QString& key, const QString& value, 
 
 QVariantList DatabaseManager::listTranslations()
 {
-    QMutexLocker locker(&m_dbMutex);
-    
     QVariantList list;
     if (!m_db.isOpen()) return list;
     QSqlQuery q(m_db);
@@ -326,8 +320,6 @@ QVariantList DatabaseManager::listTranslations()
 
 bool DatabaseManager::setTranslation(const QString& key, const QString& chinese)
 {
-    QMutexLocker locker(&m_dbMutex);
-    
     if (!m_db.isOpen()) return false;
     QSqlQuery q(m_db);
     q.prepare(R"(INSERT INTO translations(key, chinese) VALUES(:k, :c) ON CONFLICT(key) DO UPDATE SET chinese=excluded.chinese)" );
@@ -342,8 +334,6 @@ bool DatabaseManager::setTranslation(const QString& key, const QString& chinese)
 
 bool DatabaseManager::applyTranslationsToParameters()
 {
-    QMutexLocker locker(&m_dbMutex);
-    
     if (!m_db.isOpen()) return false;
     QSqlQuery q(m_db);
     bool ok = q.exec(R"(
@@ -361,8 +351,6 @@ bool DatabaseManager::applyTranslationsToParameters()
 
 QVariantList DatabaseManager::searchParameters(const QString& query, int mode)
 {
-    QMutexLocker locker(&m_dbMutex);
-    
     Q_UNUSED(mode);
     QVariantList out;
     if (!m_db.isOpen()) return out;
@@ -372,7 +360,10 @@ QVariantList DatabaseManager::searchParameters(const QString& query, int mode)
         QString qstr = query.trimmed();
         if (qstr.isEmpty()) return out;
 
+        // 对输入进行分词，并对每个 token 使用前缀匹配（token*），以便前缀搜索生效。
+        // 例如输入 "cam" -> "cam*" 可以匹配 "camera"。
         QStringList tokens = qstr.split(QRegExp("\\s+"), QString::SkipEmptyParts);
+        // 如果 token 很短（例如 1-2 个字符），直接回退到 LIKE 查询以获得更宽松的匹配
         bool useLikeFallback = false;
         for (const QString &t : tokens) {
             if (t.length() < 3) { useLikeFallback = true; break; }
@@ -386,6 +377,7 @@ QVariantList DatabaseManager::searchParameters(const QString& query, int mode)
             q.prepare(sql);
             q.bindValue(":m", match);
             if (!q.exec()) {
+                // 若执行 FTS 查询失败，则回退到 LIKE
                 useLikeFallback = true;
             } else {
                 bool found = false;
@@ -400,12 +392,16 @@ QVariantList DatabaseManager::searchParameters(const QString& query, int mode)
                     m["format"] = q.value(5).toString();
                     out.append(m);
                 }
-                if (found) return out;
+                if (found) return out; // 如果 FTS 有结果，则直接返回
+                // 否则回退到 LIKE
                 useLikeFallback = true;
             }
         }
+
+        // 回退到 LIKE 查询（覆盖短 token 或 FTS 未返回结果的情况）
     }
 
+    // 原有的 LIKE 模糊匹配回退逻辑
     QString like = QString("%") + query + "%";
     q.prepare("SELECT p.key, p.raw_value, p.chinese_name, p.device, f.path, f.format FROM parameters p JOIN files f ON p.file_id=f.id WHERE p.key LIKE :l OR p.raw_value LIKE :l OR p.chinese_name LIKE :l OR p.device LIKE :l LIMIT 500");
     q.bindValue(":l", like);
@@ -425,8 +421,6 @@ QVariantList DatabaseManager::searchParameters(const QString& query, int mode)
 
 QStringList DatabaseManager::listAllKeys()
 {
-    QMutexLocker locker(&m_dbMutex);
-    
     QStringList out;
     if (!m_db.isOpen()) return out;
     QSqlQuery q(m_db);
@@ -439,8 +433,6 @@ QStringList DatabaseManager::listAllKeys()
 
 QVariantList DatabaseManager::listFiles()
 {
-    QMutexLocker locker(&m_dbMutex);
-    
     QVariantList results;
     if (!m_db.isOpen()) {
         qWarning() << "Database not open in listFiles";
@@ -466,5 +458,5 @@ QVariantList DatabaseManager::listFiles()
 
 DatabaseManager* DatabaseManager::instance()
 {
-    return s_instance.data();
+    return s_instance;
 }

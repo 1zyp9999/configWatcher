@@ -3,9 +3,6 @@
 
 #include <QObject>
 #include <QString>
-#include <QSettings>
-#include <QByteArray>
-#include <QCryptographicHash>
 
 class LoginViewModel : public QObject
 {
@@ -28,11 +25,6 @@ public:
     void setRememberPassword(bool remember);
 
     Q_INVOKABLE bool checkLogin();
-    
-    // 从配置文件加载凭证
-    Q_INVOKABLE void loadCredentials();
-    // 保存凭证（加密密码）
-    Q_INVOKABLE void saveCredentials();
 
 signals:
     void usernameChanged();
@@ -46,13 +38,6 @@ private:
     QString m_password;
     bool m_rememberPassword = false;
     QString m_errorMessage;
-    
-    // 简单的密码加密（Base64 + XOR，生产环境应使用更安全的方案）
-    QString encryptPassword(const QString& password);
-    QString decryptPassword(const QString& encrypted);
-    
-    // 配置文件路径
-    QString getConfigPath() const;
 };
 
 #endif // LOGINVIEWMODEL_H

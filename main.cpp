@@ -3,11 +3,10 @@
 #include <QQmlContext>
 #include <QQuickStyle>
 #include <QWindow>
-#include <QUrl>
+#include <QUrl>  // 新增：QUrl 头文件
 #include <QFileInfo>
 #include <QDateTime>
 #include "databasemanager.h"
-#include "appconfig.h"
 #include <QStandardPaths>
 #include <QDirIterator>
 #include <QtConcurrent>
@@ -20,7 +19,7 @@
 #include <QMutex>
 #include <QMutexLocker>
 
-// Logging helper
+// Logging helper: 将 Qt 日志写入 $HOME/.config/log/configwatcher.log（若不存在则创建）
 static QFile g_logFile;
 static QMutex g_logMutex;
 
@@ -28,10 +27,8 @@ static void configWatcherMessageHandler(QtMsgType type, const QMessageLogContext
 {
     QMutexLocker locker(&g_logMutex);
     if (!g_logFile.isOpen()) return;
-    
     QTextStream ts(&g_logFile);
     ts << QDateTime::currentDateTime().toString(Qt::ISODate) << " ";
-    
     switch (type) {
     case QtDebugMsg: ts << "DEBUG: "; break;
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 5, 0))
@@ -41,123 +38,97 @@ static void configWatcherMessageHandler(QtMsgType type, const QMessageLogContext
     case QtCriticalMsg: ts << "CRITICAL: "; break;
     case QtFatalMsg: ts << "FATAL: "; break;
     }
-    
     ts << msg;
     if (context.file && context.line) {
         ts << " (" << context.file << ":" << context.line << ")";
     }
-    ts << Qt::endl;
+    ts << endl;
     ts.flush();
-    
     if (type == QtFatalMsg) abort();
 }
 
-static void setupLogging(const QString& logPath)
+static void setupLogging()
 {
+    QString logDir = QDir::homePath() + "/.config/log";
     QDir dir;
-    QString logDir = QFileInfo(logPath).absoluteDir().path();
-    
     if (!dir.exists(logDir)) {
         if (!dir.mkpath(logDir)) {
             qWarning() << "Failed to create log directory:" << logDir;
             return;
         }
     }
-    
+    QString logPath = logDir + "/configwatcher.log";
     g_logFile.setFileName(logPath);
     if (!g_logFile.open(QIODevice::Append | QIODevice::Text)) {
         qWarning() << "Failed to open log file:" << logPath;
         return;
     }
-    
     qInstallMessageHandler(configWatcherMessageHandler);
-    qDebug() << "Logging initialized to:" << logPath;
 }
 
 int main(int argc, char *argv[])
 {
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QApplication app(argc, argv);
-    QCoreApplication::setApplicationName("ConfigWatcher");
-    QCoreApplication::setApplicationVersion("v0.1.0");
-    QCoreApplication::setOrganizationName("ConfigWatcher");
 
-    // 加载应用配置
-    AppConfig appConfig;
-    
-    // 启动时设置文件日志
-    setupLogging(appConfig.logPath());
+    // 启动时设置文件日志（越早越好，以便捕获后续的 qWarning/qDebug）
+    setupLogging();
 
-    // 设置 Qt 5.15 原生样式
+    // 设置Qt 5.15 原生样式
     QQuickStyle::setStyle("Basic");
 
-    // 注册 QML 类型
+    // 注册QML类型
     qmlRegisterType<LoginViewModel>("ConfigWatcher", 1, 0, "LoginViewModel");
     qmlRegisterType<SearchViewModel>("ConfigWatcher", 1, 0, "SearchViewModel");
-    qmlRegisterUncreatableType<AppConfig>("ConfigWatcher", 1, 0, "AppConfig", 
-        "AppConfig is provided via context property");
 
     QQmlApplicationEngine engine;
 
-    // 将应用配置注入 QML 上下文
-    engine.rootContext()->setContextProperty("AppConfig", &appConfig);
-
-    // 将编译时间等注入 QML 上下文
+    // 将编译时间等注入 QML 上下文，方便在 About 弹窗中显示
+    // 优先使用当前可执行文件的最后修改时间（通常位于 bin/ 下）作为“最近编译时间”显示
     QString buildTime;
     QFileInfo exeInfo(QCoreApplication::applicationFilePath());
     if (exeInfo.exists()) {
         buildTime = exeInfo.lastModified().toString(Qt::DefaultLocaleLongDate);
     } else {
+        // 回退到编译时间常量
         buildTime = QStringLiteral("%1 %2").arg(QLatin1String(__DATE__)).arg(QLatin1String(__TIME__));
     }
     engine.rootContext()->setContextProperty("APP_BUILD_TIME", buildTime);
-    engine.rootContext()->setContextProperty("APP_VERSION", QStringLiteral("v0.1.0"));
+    engine.rootContext()->setContextProperty("APP_VERSION", QStringLiteral("v0.0.1"));
     engine.rootContext()->setContextProperty("APP_NAME", QStringLiteral("ConfigWatcher"));
     engine.rootContext()->setContextProperty("APP_AUTHOR", QStringLiteral("张宇鹏"));
 
-    // 初始化数据库并在后台导入配置文件到 DB
-    auto db = new DatabaseManager(&app);
-    if (db->openDatabase(appConfig.databasePath())) {
+    // 初始化数据库并在后台导入配置文件到 DB，供搜索使用
+    DatabaseManager *db = new DatabaseManager(&app);
+    QString dbPath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + "/Leichen/configwatcher.db";
+    if (db->openDatabase(dbPath)) {
         engine.rootContext()->setContextProperty("DB", db);
 
-        // 异步导入配置文件（递归）
-        QString baseDir = appConfig.configSearchPath();
-        int maxFiles = appConfig.maxImportFiles();
-        QtConcurrent::run([db, baseDir, maxFiles]() {
-            if (!QDir(baseDir).exists()) {
-                qWarning() << "Config directory does not exist:" << baseDir;
-                return;
-            }
-            
-            QDirIterator it(baseDir, QStringList() << "*.ini" << "*.json", 
-                           QDir::Files, QDirIterator::Subdirectories);
-            
-            int count = 0;
-            while (it.hasNext() && count < maxFiles) {
+        // 异步导入 ~/.config/Leichen 下的所有 ini/json 文件（递归）
+        QString baseDir = QDir::homePath() + "/.config/Leichen";
+        QtConcurrent::run([db, baseDir]() {
+            QDirIterator it(baseDir, QStringList() << "*.ini" << "*.json", QDir::Files, QDirIterator::Subdirectories);
+            while (it.hasNext()) {
                 const QString f = it.next();
                 db->importIniFile(f);
-                count++;
             }
-            
-            qDebug() << "Imported" << count << "config files";
         });
     } else {
-        qWarning() << "Failed to open DB at" << appConfig.databasePath();
+        qWarning() << "Failed to open DB at" << dbPath;
     }
 
+    // 修复：Qt 5.15 不支持 _qs 字面量，改用 QUrl 构造函数 + 普通字符串
     const QUrl url(QStringLiteral("qrc:/qml/main.qml"));
 
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
                      &app, [url](QObject *obj, const QUrl &objUrl) {
-        if (!obj && url == objUrl) {
-            qCritical() << "Failed to load QML";
+        if (!obj && url == objUrl)
             QCoreApplication::exit(-1);
-        }
     }, Qt::QueuedConnection);
 
     engine.load(url);
 
-    // 获取主窗口对象并最大化
+    // 获取主窗口对象并最大化（Qt 5.15 ApplicationWindow）
     QObject *topLevel = nullptr;
     const auto rootObjects = engine.rootObjects();
     if (!rootObjects.isEmpty()) {
@@ -168,6 +139,5 @@ int main(int argc, char *argv[])
         }
     }
 
-    qDebug() << "Application started successfully";
     return app.exec();
 }

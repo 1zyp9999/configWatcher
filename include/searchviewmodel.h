@@ -13,6 +13,7 @@
 #include "configparser.h"
 #include "configentry.h"
 #include "databasemanager.h"
+#include "aiservice.h"
 
 class SearchViewModel : public QObject
 {
@@ -22,6 +23,13 @@ class SearchViewModel : public QObject
     Q_PROPERTY(bool isLoading READ isLoading NOTIFY isLoadingChanged)
     Q_PROPERTY(int loadProgress READ loadProgress NOTIFY loadProgressChanged)
     Q_PROPERTY(int keyCount READ keyCount NOTIFY keyCountChanged)
+    
+    // AI 相关属性
+    Q_PROPERTY(bool aiEnabled READ aiEnabled WRITE setAiEnabled NOTIFY aiEnabledChanged)
+    Q_PROPERTY(QString aiIntent READ aiIntent NOTIFY aiIntentChanged)
+    Q_PROPERTY(double aiConfidence READ aiConfidence NOTIFY aiConfidenceChanged)
+    Q_PROPERTY(QVariantList aiSuggestions READ aiSuggestions NOTIFY aiSuggestionsChanged)
+    Q_PROPERTY(QString aiExplanation READ aiExplanation NOTIFY aiExplanationChanged)
 
 public:
     explicit SearchViewModel(QObject *parent = nullptr);
@@ -39,6 +47,15 @@ public:
     void setLoadProgress(int progress);
 
     int keyCount() const { return m_allKeys.size(); }
+    
+    // AI 相关方法
+    bool aiEnabled() const { return m_aiEnabled; }
+    void setAiEnabled(bool enabled);
+    
+    QString aiIntent() const { return m_aiIntent; }
+    double aiConfidence() const { return m_aiConfidence; }
+    QVariantList aiSuggestions() const { return m_aiSuggestions; }
+    QString aiExplanation() const { return m_aiExplanation; }
 
     Q_INVOKABLE QString selectDirectory();
     Q_INVOKABLE void loadConfigFiles(const QStringList& filePaths);
@@ -51,6 +68,12 @@ public:
     Q_INVOKABLE QStringList suggestKeys(const QString& prefix, int maxResults = 10);
     Q_INVOKABLE QVariantList suggestClusters(const QString &prefix, int maxClusters = 8, int maxPerCluster = 6);
     Q_INVOKABLE void requestSuggestClusters(const QString &prefix, int maxClusters = 8, int maxPerCluster = 6);
+    
+    // AI 增强搜索方法
+    Q_INVOKABLE void analyzeSearchQuery(const QString& query);
+    Q_INVOKABLE void applyAiSuggestion(const QString& suggestion);
+    Q_INVOKABLE void expandSearchWithAi(const QString& query);
+    Q_INVOKABLE QString getAiExplanation(const QString& query);
 
 public slots:
     void updateSearchResults();
@@ -64,6 +87,11 @@ signals:
     void loadProgressChanged();
     void suggestClustersReady(QVariantList clusters);
     void keyCountChanged();
+    void aiEnabledChanged(bool enabled);
+    void aiIntentChanged();
+    void aiConfidenceChanged();
+    void aiSuggestionsChanged();
+    void aiExplanationChanged();
 
 private:
     QString m_searchText;
@@ -73,9 +101,18 @@ private:
 
     ConfigParser* m_parser;
     DatabaseManager* m_dbManager = nullptr;
+    AiService* m_aiService = nullptr;
+    
     // suggestion cache
     QStringList m_allKeys;
     bool m_keyIndexBuilt = false;
+    
+    // AI 状态
+    bool m_aiEnabled = true;
+    QString m_aiIntent;
+    double m_aiConfidence = 0.0;
+    QVariantList m_aiSuggestions;
+    QString m_aiExplanation;
 };
 
 #endif // SEARCHVIEWMODEL_H
