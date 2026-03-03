@@ -33,6 +33,11 @@ public:
     Q_INVOKABLE QStringList listAllKeys();
     Q_INVOKABLE QVariantList listFiles();
 
+    // 修改记录
+    Q_INVOKABLE bool addChangeLog(const QString& filePath, const QString& key, const QString& oldValue, const QString& newValue);
+    Q_INVOKABLE QVariantList getChangeLogs(int limit = 50);
+    Q_INVOKABLE QVariantList getChangeLogsForFile(const QString& filePath, int limit = 50);
+
     // Global instance accessor (set when openDatabase is called)
     static DatabaseManager* instance();
 

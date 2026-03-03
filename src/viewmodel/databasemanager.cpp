@@ -130,6 +130,18 @@ bool DatabaseManager::openDatabase(const QString& path)
         q.exec(R"(INSERT INTO parameters_fts(rowid, key, raw_value, chinese_name, device) SELECT id, key, raw_value, chinese_name, device FROM parameters WHERE id NOT IN (SELECT rowid FROM parameters_fts);)" );
     }
 
+    // 修改记录表
+    q.exec("CREATE TABLE IF NOT EXISTS change_log ("
+           "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+           "file_path TEXT NOT NULL,"
+           "key TEXT NOT NULL,"
+           "old_value TEXT,"
+           "new_value TEXT,"
+           "changed_at DATETIME DEFAULT CURRENT_TIMESTAMP"
+           ")");
+    q.exec("CREATE INDEX IF NOT EXISTS idx_changelog_file ON change_log(file_path);");
+    q.exec("CREATE INDEX IF NOT EXISTS idx_changelog_time ON change_log(changed_at DESC);");
+
     s_instance = this;
     return true;
 }
@@ -624,4 +636,69 @@ QVariantList DatabaseManager::listFiles()
 DatabaseManager* DatabaseManager::instance()
 {
     return s_instance;
+}
+
+// ---- 修改记录 ----
+bool DatabaseManager::addChangeLog(const QString& filePath, const QString& key, const QString& oldValue, const QString& newValue)
+{
+    if (!m_db.isOpen()) return false;
+    if (oldValue == newValue) return true; // 没有实际变化
+    QSqlQuery q(m_db);
+    q.prepare("INSERT INTO change_log (file_path, key, old_value, new_value) VALUES (?, ?, ?, ?)");
+    q.addBindValue(filePath);
+    q.addBindValue(key);
+    q.addBindValue(oldValue);
+    q.addBindValue(newValue);
+    if (!q.exec()) {
+        qWarning() << "addChangeLog failed:" << q.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+QVariantList DatabaseManager::getChangeLogs(int limit)
+{
+    QVariantList results;
+    if (!m_db.isOpen()) return results;
+    QSqlQuery q(m_db);
+    q.prepare("SELECT file_path, key, old_value, new_value, changed_at FROM change_log ORDER BY changed_at DESC LIMIT ?");
+    q.addBindValue(limit);
+    if (!q.exec()) {
+        qWarning() << "getChangeLogs failed:" << q.lastError().text();
+        return results;
+    }
+    while (q.next()) {
+        QVariantMap m;
+        m["filePath"] = q.value(0).toString();
+        m["key"] = q.value(1).toString();
+        m["oldValue"] = q.value(2).toString();
+        m["newValue"] = q.value(3).toString();
+        m["changedAt"] = q.value(4).toString();
+        results.append(m);
+    }
+    return results;
+}
+
+QVariantList DatabaseManager::getChangeLogsForFile(const QString& filePath, int limit)
+{
+    QVariantList results;
+    if (!m_db.isOpen()) return results;
+    QSqlQuery q(m_db);
+    q.prepare("SELECT file_path, key, old_value, new_value, changed_at FROM change_log WHERE file_path = ? ORDER BY changed_at DESC LIMIT ?");
+    q.addBindValue(filePath);
+    q.addBindValue(limit);
+    if (!q.exec()) {
+        qWarning() << "getChangeLogsForFile failed:" << q.lastError().text();
+        return results;
+    }
+    while (q.next()) {
+        QVariantMap m;
+        m["filePath"] = q.value(0).toString();
+        m["key"] = q.value(1).toString();
+        m["oldValue"] = q.value(2).toString();
+        m["newValue"] = q.value(3).toString();
+        m["changedAt"] = q.value(4).toString();
+        results.append(m);
+    }
+    return results;
 }

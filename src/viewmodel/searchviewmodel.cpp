@@ -606,6 +606,14 @@ bool SearchViewModel::writeConfigFile(const QString &filePath, const QVariantLis
     QFile f(filePath);
     if (!f.exists()) return false;
 
+    // 先读取旧值用于记录修改
+    QVariantList oldEntries = readConfigFile(filePath);
+    QMap<QString, QString> oldMap;
+    for (const QVariant &v : oldEntries) {
+        QVariantMap m = v.toMap();
+        oldMap[m.value("key").toString()] = m.value("value").toString();
+    }
+
     // 备份原文件
     QString bak = filePath + ".bak";
     QFile::remove(bak);
@@ -669,7 +677,7 @@ bool SearchViewModel::writeConfigFile(const QString &filePath, const QVariantLis
 
     f.close();
 
-    // 同步到数据库：逐条保存
+    // 同步到数据库：逐条保存，并记录修改
     DatabaseManager* db = DatabaseManager::instance();
     if (db) {
         for (const QVariant &v : entries) {
@@ -677,6 +685,12 @@ bool SearchViewModel::writeConfigFile(const QString &filePath, const QVariantLis
             QString key = m.value("key").toString();
             QString val = m.value("value").toString();
             db->saveConfigEntry(key, val, filePath, QFileInfo(filePath).suffix().toLower(), "");
+
+            // 记录修改历史
+            QString oldVal = oldMap.value(key);
+            if (oldVal != val) {
+                db->addChangeLog(filePath, key, oldVal, val);
+            }
         }
     }
     return true;
