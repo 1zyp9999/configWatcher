@@ -37,6 +37,8 @@ public:
     Q_INVOKABLE bool addChangeLog(const QString& filePath, const QString& key, const QString& oldValue, const QString& newValue);
     Q_INVOKABLE QVariantList getChangeLogs(int limit = 50);
     Q_INVOKABLE QVariantList getChangeLogsForFile(const QString& filePath, int limit = 50);
+    Q_INVOKABLE bool deleteChangeLog(const QString& filePath, const QString& key, const QString& changedAt);
+    Q_INVOKABLE void clearChangeLogs();
 
     // 只读字段管理
     Q_INVOKABLE bool setFieldReadOnly(const QString& filePath, const QString& key, bool readOnly);

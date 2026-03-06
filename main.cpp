@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
 
     QString buildTime = QFileInfo(QCoreApplication::applicationFilePath()).lastModified().toString(Qt::DefaultLocaleLongDate);
     engine.rootContext()->setContextProperty("APP_BUILD_TIME", buildTime);
-    engine.rootContext()->setContextProperty("APP_VERSION", "v0.0.1");
+    engine.rootContext()->setContextProperty("APP_VERSION", "v1.0.0");
     engine.rootContext()->setContextProperty("APP_NAME", "ConfigWatcher");
     engine.rootContext()->setContextProperty("APP_AUTHOR", "张宇鹏");
 

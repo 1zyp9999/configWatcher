@@ -761,6 +761,33 @@ QVariantList DatabaseManager::getChangeLogsForFile(const QString& filePath, int 
     return results;
 }
 
+bool DatabaseManager::deleteChangeLog(const QString& filePath, const QString& key, const QString& changedAt)
+{
+    if (!m_db.isOpen()) return false;
+    
+    QSqlQuery q(m_db);
+    q.prepare("DELETE FROM change_log WHERE file_path = :path AND key = :key AND changed_at = :time");
+    q.bindValue(":path", filePath);
+    q.bindValue(":key", key);
+    q.bindValue(":time", changedAt);
+    
+    if (!q.exec()) {
+        qWarning() << "deleteChangeLog failed:" << q.lastError().text();
+        return false;
+    }
+    return q.numRowsAffected() > 0;
+}
+
+void DatabaseManager::clearChangeLogs()
+{
+    if (!m_db.isOpen()) return;
+    
+    QSqlQuery q(m_db);
+    if (!q.exec("DELETE FROM change_log")) {
+        qWarning() << "clearChangeLogs failed:" << q.lastError().text();
+    }
+}
+
 // ========== 只读字段管理 ==========
 
 bool DatabaseManager::setFieldReadOnly(const QString& filePath, const QString& key, bool readOnly)

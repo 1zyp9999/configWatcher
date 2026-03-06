@@ -19,7 +19,6 @@ Item {
     property bool suggestionsVisible: false
     property bool settingsVisible: false
     property bool changeLogVisible: false
-    property bool templateVisible: false
     property string settingsFilePath: ""
     signal openFileRequested(string filePath)
     ListModel { id: settingsModel }
@@ -28,7 +27,6 @@ Item {
     ListModel { id: historyModel }
     ListModel { id: hotSearchModel }
     ListModel { id: changeLogModel }
-    ListModel { id: templateModel }
 
     // ===== 深色配色方案（与登录界面统一） =====
     property color primaryColor: "#2563EB"        // 主色：蓝
@@ -1840,29 +1838,25 @@ Item {
                     }
                 }
 
-                // ===== 选项卡栏：编辑 / 修改记录 / 模板 =====
+                // ===== 选项卡栏：编辑 / 修改记录 =====
                 RowLayout {
                     Layout.fillWidth: true
                     Layout.bottomMargin: 8
                     spacing: 0
 
                     Repeater {
-                        model: [qsTr("✏️ 编辑"), qsTr("📋 修改记录"), qsTr("📁 模板管理")]
+                        model: [qsTr("✏️ 编辑"), qsTr("📋 修改记录")]
                         Rectangle {
                             Layout.preferredWidth: 130; height: 36; radius: 8
                             color: {
-                                var isActive = (index === 0 && !mainPage.changeLogVisible && !mainPage.templateVisible) ||
-                                               (index === 1 && mainPage.changeLogVisible) ||
-                                               (index === 2 && mainPage.templateVisible)
+                                var isActive = (index === 0 && !mainPage.changeLogVisible) || (index === 1 && mainPage.changeLogVisible)
                                 return isActive ? "#2563EB" : "transparent"
                             }
                             Text {
                                 anchors.centerIn: parent
                                 text: modelData
                                 color: {
-                                    var isActive = (index === 0 && !mainPage.changeLogVisible && !mainPage.templateVisible) ||
-                                                   (index === 1 && mainPage.changeLogVisible) ||
-                                                   (index === 2 && mainPage.templateVisible)
+                                    var isActive = (index === 0 && !mainPage.changeLogVisible) || (index === 1 && mainPage.changeLogVisible)
                                     return isActive ? "white" : "#64748B"
                                 }
                                 font.pointSize: 11; font.bold: true
@@ -1870,9 +1864,8 @@ Item {
                             MouseArea {
                                 anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                                 onClicked: {
-                                    if (index === 0) { mainPage.changeLogVisible = false; mainPage.templateVisible = false }
-                                    else if (index === 1) { mainPage.changeLogVisible = true; mainPage.templateVisible = false; loadChangeLogs() }
-                                    else { mainPage.changeLogVisible = false; mainPage.templateVisible = true; loadTemplates() }
+                                    if (index === 0) mainPage.changeLogVisible = false
+                                    else { mainPage.changeLogVisible = true; loadChangeLogs() }
                                 }
                             }
                         }
@@ -2007,10 +2000,11 @@ Item {
                                                 hoverEnabled: true
                                                 cursorShape: Qt.PointingHandCursor
                                                 onClicked: {
-                                                    // 显示密码输入对话框
                                                     lockDialog.currentKey = model.key
                                                     lockDialog.currentReadOnly = model.readOnly
                                                     lockDialog.currentIndex = index
+                                                    lockDialog.itemType = "lock"
+                                                    lockDialog.isImportMode = false
                                                     lockDialog.open()
                                                 }
                                             }
@@ -2041,6 +2035,32 @@ Item {
                                 Text { text: qsTr("时间"); color: "#64748B"; font.pointSize: 10; font.bold: true; Layout.preferredWidth: 150 }
                                 Text { text: qsTr("参数"); color: "#64748B"; font.pointSize: 10; font.bold: true; Layout.preferredWidth: 200 }
                                 Text { text: qsTr("变更"); color: "#64748B"; font.pointSize: 10; font.bold: true; Layout.fillWidth: true }
+                                // 清空全部按钮
+                                Rectangle {
+                                    width: 80; height: 28; radius: 6
+                                    color: clearAllLogMA.containsMouse ? "#3f1a1a" : "transparent"
+                                    border.color: dangerColor
+                                    border.width: 1
+                                    visible: changeLogModel.count > 0
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "清空全部"
+                                        color: dangerColor
+                                        font.pointSize: 10
+                                        font.bold: true
+                                    }
+                                    MouseArea {
+                                        id: clearAllLogMA
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            lockDialog.itemType = "logAll"
+                                            lockDialog.isImportMode = false
+                                            lockDialog.open()
+                                        }
+                                    }
+                                }
                             }
                         }
 
@@ -2139,156 +2159,30 @@ Item {
                                                     maximumLineCount: 1
                                                 }
                                             }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // ===== 模板管理面板 =====
-                Item {
-                    visible: mainPage.templateVisible
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-
-                    ColumnLayout {
-                        anchors.fill: parent
-                        spacing: 0
-
-                        // 表头
-                        Rectangle {
-                            Layout.fillWidth: true; height: 36; radius: 8
-                            color: Qt.rgba(1,1,1,0.03)
-                            RowLayout {
-                                anchors.fill: parent; anchors.leftMargin: 16; anchors.rightMargin: 16; spacing: 12
-                                Text { text: qsTr("模板名称"); color: "#64748B"; font.pointSize: 10; font.bold: true; Layout.preferredWidth: 200 }
-                                Text { text: qsTr("导入时间"); color: "#64748B"; font.pointSize: 10; font.bold: true; Layout.preferredWidth: 150 }
-                                Text { text: qsTr("字段数量"); color: "#64748B"; font.pointSize: 10; font.bold: true; Layout.preferredWidth: 100 }
-                                Text { text: qsTr("操作"); color: "#64748B"; font.pointSize: 10; font.bold: true; Layout.fillWidth: true }
-                            }
-                        }
-
-                        // 空状态
-                        Item {
-                            visible: templateModel.count === 0
-                            Layout.fillWidth: true; Layout.fillHeight: true
-                            ColumnLayout {
-                                anchors.centerIn: parent; spacing: 8
-                                Text { text: "📁"; font.pointSize: 36; Layout.alignment: Qt.AlignHCenter; opacity: 0.4 }
-                                Text { text: qsTr("暂无模板"); color: "#475569"; font.pointSize: 13; Layout.alignment: Qt.AlignHCenter }
-                                Text { text: qsTr("导入配置文件作为模板，可快速锁定批量字段"); color: "#334155"; font.pointSize: 10; Layout.alignment: Qt.AlignHCenter }
-                            }
-                        }
-
-                        // 模板列表
-                        ScrollView {
-                            visible: templateModel.count > 0
-                            Layout.fillWidth: true; Layout.fillHeight: true
-                            clip: true
-                            ScrollBar.vertical.policy: ScrollBar.AsNeeded
-
-                            ListView {
-                                id: templateListView
-                                model: templateModel
-                                spacing: 2
-
-                                delegate: Rectangle {
-                                    width: templateListView.width - 8
-                                    height: 48
-                                    radius: 8
-                                    color: templateItemMA.containsMouse ? Qt.rgba(1,1,1,0.04) : "transparent"
-
-                                    MouseArea { id: templateItemMA; anchors.fill: parent; hoverEnabled: true }
-
-                                    RowLayout {
-                                        anchors.fill: parent; anchors.leftMargin: 16; anchors.rightMargin: 16; spacing: 12
-
-                                        // 模板名称
-                                        Text {
-                                            text: model.name || ""
-                                            color: "#CBD5E1"; font.pointSize: 11; font.bold: true
-                                            elide: Text.ElideRight
-                                            Layout.preferredWidth: 200
-                                            ToolTip {
-                                                visible: templateNameMA.containsMouse && (model.name || "").length > 25
-                                                text: model.filePath || ""
-                                                delay: 500
-                                            }
-                                            MouseArea { id: templateNameMA; anchors.fill: parent; hoverEnabled: true }
-                                        }
-
-                                        // 导入时间
-                                        Text {
-                                            text: {
-                                                var t = model.importedAt || ""
-                                                if (t.length > 10) return t.substring(5, 16).replace("T", " ")
-                                                return t
-                                            }
-                                            color: "#94A3B8"; font.pointSize: 10
-                                            Layout.preferredWidth: 150
-                                        }
-
-                                        // 字段数量
-                                        Rectangle {
-                                            width: 50; height: 24; radius: 6
-                                            color: Qt.rgba(37/255, 99/255, 235/255, 0.15)
-                                            Text {
-                                                anchors.centerIn: parent
-                                                text: model.fieldCount || 0
-                                                color: "#60A5FA"; font.pointSize: 10; font.bold: true
-                                            }
-                                        }
-
-                                        // 操作按钮
-                                        RowLayout {
-                                            Layout.fillWidth: true
-                                            spacing: 6
-
-                                            // 应用模板
+                                            Item { Layout.fillWidth: true }
+                                            // 删除按钮
                                             Rectangle {
-                                                width: 70; height: 28; radius: 6
-                                                color: applyTemplateMA.containsMouse ? "#1E3A5F" : "transparent"
-                                                border.color: "#60A5FA"; border.width: 1
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: "应用"
-                                                    color: "#60A5FA"; font.pointSize: 10
-                                                }
-                                                MouseArea {
-                                                    id: applyTemplateMA
-                                                    anchors.fill: parent
-                                                    hoverEnabled: true
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: {
-                                                        confirmDialog.templatePath = model.filePath
-                                                        confirmDialog.templateName = model.name
-                                                        confirmDialog.open()
-                                                    }
-                                                }
-                                            }
-
-                                            // 删除模板
-                                            Rectangle {
-                                                width: 50; height: 28; radius: 6
-                                                color: deleteTemplateMA.containsMouse ? "#3A1F1F" : "transparent"
-                                                border.color: "#EF4444"; border.width: 1
+                                                width: 50; height: 26; radius: 6
+                                                color: deleteLogMA.containsMouse ? "#3f1a1a" : "transparent"
+                                                border.color: dangerColor
+                                                border.width: 1
                                                 Text {
                                                     anchors.centerIn: parent
                                                     text: "删除"
-                                                    color: "#EF4444"; font.pointSize: 10
+                                                    color: dangerColor
+                                                    font.pointSize: 10
                                                 }
                                                 MouseArea {
-                                                    id: deleteTemplateMA
+                                                    id: deleteLogMA
                                                     anchors.fill: parent
                                                     hoverEnabled: true
                                                     cursorShape: Qt.PointingHandCursor
                                                     onClicked: {
-                                                        if (DB && typeof DB.deleteTemplate === 'function') {
-                                                            DB.deleteTemplate(model.filePath)
-                                                            loadTemplates()
-                                                        }
+                                                        lockDialog.itemType = "log"
+                                                        lockDialog.itemKey = model.filePath + "|" + model.key + "|" + model.changedAt
+                                                        lockDialog.itemIndex = index
+                                                        lockDialog.isImportMode = false
+                                                        lockDialog.open()
                                                     }
                                                 }
                                             }
@@ -2642,10 +2536,11 @@ Item {
                                         Button {
                                             text: "删除"; height: 30; Layout.preferredWidth: 60
                                             onClicked: {
-                                                deleteConfirmDialog.itemType = "dict"
-                                                deleteConfirmDialog.itemKey = modelData.key
-                                                deleteConfirmDialog.itemIndex = index
-                                                deleteConfirmDialog.open()
+                                                lockDialog.itemType = "dict"
+                                                lockDialog.itemKey = modelData.key
+                                                lockDialog.itemIndex = index
+                                                lockDialog.isImportMode = false
+                                                lockDialog.open()
                                             }
                                             background: Rectangle { color: "#3f1a1a"; radius: 6; border.color: dangerColor; border.width: 1 }
                                             contentItem: Text { text: parent.text; color: dangerColor; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pointSize: 11 }
@@ -2737,10 +2632,11 @@ Item {
                                                             hoverEnabled: true
                                                             cursorShape: Qt.PointingHandCursor
                                                             onClicked: {
-                                                                deleteConfirmDialog.itemType = "history"
-                                                                deleteConfirmDialog.itemKey = model.query
-                                                                deleteConfirmDialog.itemIndex = index
-                                                                deleteConfirmDialog.open()
+                                                                lockDialog.itemType = "history"
+                                                                lockDialog.itemKey = model.query
+                                                                lockDialog.itemIndex = index
+                                                                lockDialog.isImportMode = false
+                                                                lockDialog.open()
                                                             }
                                                         }
                                                     }
@@ -2901,184 +2797,6 @@ Item {
         }
     }
 
-    // ===== 删除确认对话框 =====
-    Rectangle {
-        id: deleteConfirmOverlay
-        anchors.fill: parent
-        color: "#000000AA"
-        visible: deleteConfirmDialog.visible
-        z: 3000
-        MouseArea { anchors.fill: parent; onClicked: deleteConfirmDialog.close() }
-
-        Rectangle {
-            id: deleteConfirmDialog
-            width: 380
-            height: deleteContent.implicitHeight + 40
-            anchors.centerIn: parent
-            radius: 16
-            color: cardColor
-            border.color: dangerColor
-            border.width: 2
-            visible: false
-
-            property string itemType: ""
-            property string itemKey: ""
-            property int itemIndex: -1
-
-            function open() {
-                visible = true
-                deleteConfirmOverlay.visible = true
-            }
-
-            function close() {
-                visible = false
-                deleteConfirmOverlay.visible = false
-                itemType = ""
-                itemKey = ""
-                itemIndex = -1
-            }
-
-            function confirm() {
-                if (itemType === "dict") {
-                    searchVM.removeUserTerm(itemKey)
-                    userDictModel.remove(itemIndex)
-                } else if (itemType === "history") {
-                    if (searchVM.deleteSearchHistory) {
-                        searchVM.deleteSearchHistory(itemKey)
-                    }
-                    historyModel.remove(itemIndex)
-                }
-                close()
-            }
-
-            ColumnLayout {
-                id: deleteContent
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.margins: 24
-                spacing: 16
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 12
-
-                    Rectangle {
-                        width: 40; height: 40; radius: 10
-                        color: Qt.rgba(239/255, 68/255, 68/255, 0.15)
-                        border.color: dangerColor
-                        border.width: 1
-                        Text {
-                            anchors.centerIn: parent
-                            text: "⚠️"
-                            font.pointSize: 18
-                        }
-                    }
-
-                    ColumnLayout {
-                        spacing: 4
-                        Text {
-                            text: "确认删除"
-                            color: textPrimary
-                            font.pointSize: 15
-                            font.bold: true
-                        }
-                        Text {
-                            text: deleteConfirmDialog.itemType === "dict" ? "此自定义词条" : "此搜索记录"
-                            color: textMuted
-                            font.pointSize: 10
-                        }
-                    }
-
-                    Item { Layout.fillWidth: true }
-
-                    Rectangle {
-                        width: 32; height: 32; radius: 16
-                        color: closeDeleteMA.containsMouse ? "#374151" : "transparent"
-                        Text { text: "✕"; anchors.centerIn: parent; color: "#94A3B8"; font.pointSize: 12 }
-                        MouseArea {
-                            id: closeDeleteMA; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                            onClicked: deleteConfirmDialog.close()
-                        }
-                    }
-                }
-
-                Rectangle {
-                    Layout.fillWidth: true
-                    height: 50
-                    radius: 8
-                    color: "#0F1117"
-                    border.color: Qt.rgba(1,1,1,0.08)
-                    Text {
-                        anchors.fill: parent
-                        anchors.margins: 12
-                        text: deleteConfirmDialog.itemKey || ""
-                        color: primaryLight
-                        font.pointSize: 11
-                        font.family: "monospace"
-                        elide: Text.ElideMiddle
-                    }
-                }
-
-                Text {
-                    text: "此操作不可撤销，确定继续？"
-                    color: textSecondary
-                    font.pointSize: 11
-                    Layout.fillWidth: true
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    Layout.topMargin: 8
-                    spacing: 10
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        height: 40
-                        radius: 10
-                        color: cancelDeleteMA.containsMouse ? "#334155" : surfaceColor
-                        border.color: borderColor
-                        border.width: 1
-                        Text {
-                            anchors.centerIn: parent
-                            text: "取消"
-                            color: textSecondary
-                            font.pointSize: 12
-                        }
-                        MouseArea {
-                            id: cancelDeleteMA
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: deleteConfirmDialog.close()
-                        }
-                    }
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        height: 40
-                        radius: 10
-                        color: confirmDeleteMA.containsMouse ? "#DC2626" : dangerColor
-                        Text {
-                            anchors.centerIn: parent
-                            text: "删除"
-                            color: "#FFFFFF"
-                            font.pointSize: 12
-                            font.bold: true
-                        }
-                        MouseArea {
-                            id: confirmDeleteMA
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: deleteConfirmDialog.confirm()
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     function loadUserDictionary() {
         var terms = searchVM.getUserTerms()
         userDictModel.clear()
@@ -3135,30 +2853,56 @@ Item {
             }
 
             function confirm() {
-                if (passwordField.text === "aoi2024") {
-                    if (isImportMode) {
-                        // 导入模板模式
-                        if (DB && typeof DB.importTemplate === 'function') {
-                            var ok = DB.importTemplate(templateFile, settingsFilePath)
-                            if (ok) {
-                                importSuccess.visible = true
-                                setTimeout(loadTemplates, 500)
-                                setTimeout(close, 1500)
-                            }
-                        }
-                    } else {
-                        // 锁定/解锁模式
-                        var newReadOnly = !currentReadOnly
-                        if (DB && typeof DB.setFieldReadOnly === 'function') {
-                            DB.setFieldReadOnly(settingsFilePath, currentKey, newReadOnly)
-                            settingsModel.setProperty(currentIndex, "readOnly", newReadOnly)
-                        }
-                        close()
-                    }
-                } else {
+                if (passwordField.text !== "aoi2024") {
                     passwordError.visible = true
                     passwordField.selectAll()
                     passwordField.forceActiveFocus()
+                    return
+                }
+                
+                if (isImportMode) {
+                    // 导入模板模式
+                    if (DB && typeof DB.importTemplate === 'function') {
+                        var ok = DB.importTemplate(templateFile, settingsFilePath)
+                        if (ok) {
+                            importSuccess.visible = true
+                            setTimeout(loadTemplates, 500)
+                            setTimeout(close, 1500)
+                        }
+                    }
+                } else if (itemType === "lock") {
+                    // 锁定/解锁模式
+                    var newReadOnly = !currentReadOnly
+                    if (DB && typeof DB.setFieldReadOnly === 'function') {
+                        DB.setFieldReadOnly(settingsFilePath, currentKey, newReadOnly)
+                        settingsModel.setProperty(currentIndex, "readOnly", newReadOnly)
+                    }
+                    close()
+                } else {
+                    // 删除模式
+                    if (itemType === "dict") {
+                        searchVM.removeUserTerm(itemKey)
+                        userDictModel.remove(itemIndex)
+                    } else if (itemType === "history") {
+                        if (searchVM.deleteSearchHistory) {
+                            searchVM.deleteSearchHistory(itemKey)
+                        }
+                        historyModel.remove(itemIndex)
+                    } else if (itemType === "log") {
+                        // 删除单条修改记录
+                        var parts = itemKey.split("|")
+                        if (parts.length >= 3 && DB && typeof DB.deleteChangeLog === 'function') {
+                            DB.deleteChangeLog(parts[0], parts[1], parts[2])
+                            changeLogModel.remove(itemIndex)
+                        }
+                    } else if (itemType === "logAll") {
+                        // 清空全部修改记录
+                        if (DB && typeof DB.clearChangeLogs === 'function') {
+                            DB.clearChangeLogs()
+                            changeLogModel.clear()
+                        }
+                    }
+                    close()
                 }
             }
 
@@ -3190,13 +2934,25 @@ Item {
                     ColumnLayout {
                         spacing: 4
                         Text {
-                            text: lockDialog.isImportMode ? "导入配置模板" : (currentReadOnly ? "解锁字段" : "锁定字段")
+                            text: {
+                                if (lockDialog.isImportMode) return "导入配置模板"
+                                else if (lockDialog.itemType === "lock") return lockDialog.currentReadOnly ? "解锁字段" : "锁定字段"
+                                else return "确认删除"
+                            }
                             color: textPrimary
                             font.pointSize: 15
                             font.bold: true
                         }
                         Text {
-                            text: "操作需要验证密码"
+                            text: {
+                                if (lockDialog.isImportMode) return "操作需要验证密码"
+                                else if (lockDialog.itemType === "lock") return "操作需要验证密码"
+                                else if (lockDialog.itemType === "dict") return "此自定义词条"
+                                else if (lockDialog.itemType === "history") return "此搜索记录"
+                                else if (lockDialog.itemType === "log") return "此修改记录"
+                                else if (lockDialog.itemType === "logAll") return "全部修改记录"
+                                return ""
+                            }
                             color: textMuted
                             font.pointSize: 10
                         }
@@ -3398,7 +3154,7 @@ Item {
                         }
                     }
 
-                    // 锁定/解锁/导入按钮
+                    // 锁定/解锁/导入/删除按钮
                     Rectangle {
                         id: confirmBtn
                         Layout.fillWidth: true
@@ -3407,7 +3163,11 @@ Item {
                         color: confirmMA.containsMouse ? "#3B82F6" : primaryColor
                         Text {
                             anchors.centerIn: parent
-                            text: lockDialog.isImportMode ? "导入" : (lockDialog.currentReadOnly ? "解锁" : "锁定")
+                            text: {
+                                if (lockDialog.isImportMode) return "导入"
+                                else if (lockDialog.itemType === "lock") return lockDialog.currentReadOnly ? "解锁" : "锁定"
+                                else return "删除"
+                            }
                             color: "#FFFFFF"
                             font.pointSize: 12
                             font.bold: true
@@ -3421,197 +3181,6 @@ Item {
                         }
                     }
                 }
-            }
-        }
-    }
-
-    // ===== 应用模板确认对话框 =====
-    Rectangle {
-        id: confirmOverlay
-        anchors.fill: parent
-        color: "#000000AA"
-        visible: confirmDialog.visible
-        z: 2000
-        MouseArea { anchors.fill: parent; onClicked: confirmDialog.close() }
-
-        Rectangle {
-            id: confirmDialog
-            width: 400
-            height: confirmContent.implicitHeight + 40
-            anchors.centerIn: parent
-            radius: 16
-            color: cardColor
-            border.color: warningColor
-            border.width: 2
-            visible: false
-
-            property string templatePath: ""
-            property string templateName: ""
-
-            function open() {
-                visible = true
-                confirmOverlay.visible = true
-            }
-
-            function close() {
-                visible = false
-                confirmOverlay.visible = false
-            }
-
-            function apply() {
-                if (DB && typeof DB.applyTemplate === 'function') {
-                    DB.applyTemplate(templatePath)
-                    loadTemplates()
-                    close()
-                }
-            }
-
-            ColumnLayout {
-                id: confirmContent
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.margins: 24
-                spacing: 16
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 12
-
-                    Rectangle {
-                        width: 40; height: 40; radius: 10
-                        color: Qt.rgba(245/255, 158/255, 11/255, 0.15)
-                        border.color: warningColor
-                        border.width: 1
-                        Text {
-                            anchors.centerIn: parent
-                            text: "⚠️"
-                            font.pointSize: 18
-                        }
-                    }
-
-                    ColumnLayout {
-                        spacing: 4
-                        Text {
-                            text: "应用模板"
-                            color: textPrimary
-                            font.pointSize: 15
-                            font.bold: true
-                        }
-                        Text {
-                            text: "将模板应用到所有配置文件"
-                            color: textMuted
-                            font.pointSize: 10
-                        }
-                    }
-
-                    Item { Layout.fillWidth: true }
-
-                    Rectangle {
-                        width: 32; height: 32; radius: 16
-                        color: closeConfirmMA.containsMouse ? "#374151" : "transparent"
-                        Text { text: "✕"; anchors.centerIn: parent; color: "#94A3B8"; font.pointSize: 12 }
-                        MouseArea {
-                            id: closeConfirmMA; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                            onClicked: confirmDialog.close()
-                        }
-                    }
-                }
-
-                Rectangle {
-                    Layout.fillWidth: true
-                    height: 50
-                    radius: 8
-                    color: "#0F1117"
-                    border.color: Qt.rgba(1,1,1,0.08)
-                    Text {
-                        anchors.fill: parent
-                        anchors.margins: 12
-                        text: confirmDialog.templateName || ""
-                        color: primaryLight
-                        font.pointSize: 11
-                        font.family: "monospace"
-                        wrapMode: Text.WrapAnywhere
-                    }
-                }
-
-                Text {
-                    text: "此操作将把所有配置文件中的模板字段设置为只读状态，确定继续？"
-                    color: textSecondary
-                    font.pointSize: 11
-                    wrapMode: Text.WrapAnywhere
-                    Layout.fillWidth: true
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    Layout.topMargin: 8
-                    spacing: 10
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        height: 40
-                        radius: 10
-                        color: cancelConfirmMA.containsMouse ? "#334155" : surfaceColor
-                        border.color: borderColor
-                        border.width: 1
-                        Text {
-                            anchors.centerIn: parent
-                            text: "取消"
-                            color: textSecondary
-                            font.pointSize: 12
-                        }
-                        MouseArea {
-                            id: cancelConfirmMA
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: confirmDialog.close()
-                        }
-                    }
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        height: 40
-                        radius: 10
-                        color: applyConfirmMA.containsMouse ? "#F59E0B" : warningColor
-                        Text {
-                            anchors.centerIn: parent
-                            text: "确定应用"
-                            color: "#FFFFFF"
-                            font.pointSize: 12
-                            font.bold: true
-                        }
-                        MouseArea {
-                            id: applyConfirmMA
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: confirmDialog.apply()
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    function loadTemplates() {
-        templateModel.clear()
-        if (DB && typeof DB.getTemplateFiles === 'function') {
-            var templates = DB.getTemplateFiles()
-            for (var i = 0; i < templates.length; i++) {
-                var t = templates[i]
-                // 获取字段数量
-                var fieldCount = 0
-                if (DB && typeof DB.getTemplateFieldCount === 'function') {
-                    fieldCount = DB.getTemplateFieldCount(t.filePath)
-                }
-                templateModel.append({
-                    filePath: t.filePath || "",
-                    name: t.name || t.filePath.split('/').pop() || "",
-                    importedAt: t.importedAt || "",
-                    fieldCount: fieldCount
-                })
             }
         }
     }
