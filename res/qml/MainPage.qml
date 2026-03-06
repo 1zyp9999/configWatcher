@@ -2660,6 +2660,7 @@ Item {
                             ListView {
                                 id: userDictListView; model: userDictModel; spacing: 6; anchors.fill: parent
                                 delegate: Rectangle {
+                                    id: userDictItem
                                     width: userDictListView.width - 20; height: 60; radius: 8
                                     color: surfaceColor; border.color: borderColor; border.width: 1
                                     RowLayout {
@@ -2673,7 +2674,12 @@ Item {
                                         }
                                         Button {
                                             text: "删除"; height: 30; Layout.preferredWidth: 60
-                                            onClicked: { searchVM.removeUserTerm(modelData.key); userDictModel.remove(index) }
+                                            onClicked: {
+                                                deleteConfirmDialog.itemType = "dict"
+                                                deleteConfirmDialog.itemKey = modelData.key
+                                                deleteConfirmDialog.itemIndex = index
+                                                deleteConfirmDialog.open()
+                                            }
                                             background: Rectangle { color: "#3f1a1a"; radius: 6; border.color: dangerColor; border.width: 1 }
                                             contentItem: Text { text: parent.text; color: dangerColor; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pointSize: 11 }
                                         }
@@ -2721,13 +2727,14 @@ Item {
                                         ListView {
                                             id: historyListView; model: historyModel; spacing: 4; anchors.fill: parent
                                             delegate: Rectangle {
+                                                id: historyItem
                                                 width: parent.width - 16; height: 40; radius: 6
                                                 color: index % 2 === 0 ? "#0f172a" : "#1e293b"
                                                 border.color: "#334155"
                                                 border.width: 1
                                                 RowLayout {
                                                     anchors.fill: parent; anchors.margins: 10; spacing: 8
-                                                    Text { 
+                                                    Text {
                                                         text: model.query || ""
                                                         color: "#f1f5f9"
                                                         font.pointSize: 13
@@ -2735,16 +2742,40 @@ Item {
                                                         elide: Text.ElideRight
                                                         Layout.fillWidth: true
                                                     }
-                                                    Text { 
+                                                    Text {
                                                         text: model.intent || ""
                                                         color: "#94a3b8"
                                                         font.pointSize: 11
                                                     }
                                                     Item { Layout.fillWidth: true }
-                                                    Text { 
+                                                    Text {
                                                         text: model.time || ""
                                                         color: "#64748b"
                                                         font.pointSize: 11
+                                                    }
+                                                    Rectangle {
+                                                        width: 50; height: 26; radius: 6
+                                                        color: deleteHistoryMA.containsMouse ? "#3f1a1a" : "transparent"
+                                                        border.color: dangerColor
+                                                        border.width: 1
+                                                        Text {
+                                                            anchors.centerIn: parent
+                                                            text: "删除"
+                                                            color: dangerColor
+                                                            font.pointSize: 10
+                                                        }
+                                                        MouseArea {
+                                                            id: deleteHistoryMA
+                                                            anchors.fill: parent
+                                                            hoverEnabled: true
+                                                            cursorShape: Qt.PointingHandCursor
+                                                            onClicked: {
+                                                                deleteConfirmDialog.itemType = "history"
+                                                                deleteConfirmDialog.itemKey = model.query
+                                                                deleteConfirmDialog.itemIndex = index
+                                                                deleteConfirmDialog.open()
+                                                            }
+                                                        }
                                                     }
                                                 }
                                             }
@@ -2896,6 +2927,184 @@ Item {
                                 color: textSecondary; font.pointSize: 10; font.family: "monospace"
                                 wrapMode: Text.WrapAnywhere
                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ===== 删除确认对话框 =====
+    Rectangle {
+        id: deleteConfirmOverlay
+        anchors.fill: parent
+        color: "#000000AA"
+        visible: deleteConfirmDialog.visible
+        z: 3000
+        MouseArea { anchors.fill: parent; onClicked: deleteConfirmDialog.close() }
+
+        Rectangle {
+            id: deleteConfirmDialog
+            width: 380
+            height: deleteContent.implicitHeight + 40
+            anchors.centerIn: parent
+            radius: 16
+            color: cardColor
+            border.color: dangerColor
+            border.width: 2
+            visible: false
+
+            property string itemType: ""
+            property string itemKey: ""
+            property int itemIndex: -1
+
+            function open() {
+                visible = true
+                deleteConfirmOverlay.visible = true
+            }
+
+            function close() {
+                visible = false
+                deleteConfirmOverlay.visible = false
+                itemType = ""
+                itemKey = ""
+                itemIndex = -1
+            }
+
+            function confirm() {
+                if (itemType === "dict") {
+                    searchVM.removeUserTerm(itemKey)
+                    userDictModel.remove(itemIndex)
+                } else if (itemType === "history") {
+                    if (searchVM.deleteSearchHistory) {
+                        searchVM.deleteSearchHistory(itemKey)
+                    }
+                    historyModel.remove(itemIndex)
+                }
+                close()
+            }
+
+            ColumnLayout {
+                id: deleteContent
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 24
+                spacing: 16
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 12
+
+                    Rectangle {
+                        width: 40; height: 40; radius: 10
+                        color: Qt.rgba(239/255, 68/255, 68/255, 0.15)
+                        border.color: dangerColor
+                        border.width: 1
+                        Text {
+                            anchors.centerIn: parent
+                            text: "⚠️"
+                            font.pointSize: 18
+                        }
+                    }
+
+                    ColumnLayout {
+                        spacing: 4
+                        Text {
+                            text: "确认删除"
+                            color: textPrimary
+                            font.pointSize: 15
+                            font.bold: true
+                        }
+                        Text {
+                            text: deleteConfirmDialog.itemType === "dict" ? "此自定义词条" : "此搜索记录"
+                            color: textMuted
+                            font.pointSize: 10
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Rectangle {
+                        width: 32; height: 32; radius: 16
+                        color: closeDeleteMA.containsMouse ? "#374151" : "transparent"
+                        Text { text: "✕"; anchors.centerIn: parent; color: "#94A3B8"; font.pointSize: 12 }
+                        MouseArea {
+                            id: closeDeleteMA; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onClicked: deleteConfirmDialog.close()
+                        }
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 50
+                    radius: 8
+                    color: "#0F1117"
+                    border.color: Qt.rgba(1,1,1,0.08)
+                    Text {
+                        anchors.fill: parent
+                        anchors.margins: 12
+                        text: deleteConfirmDialog.itemKey || ""
+                        color: primaryLight
+                        font.pointSize: 11
+                        font.family: "monospace"
+                        elide: Text.ElideMiddle
+                    }
+                }
+
+                Text {
+                    text: "此操作不可撤销，确定继续？"
+                    color: textSecondary
+                    font.pointSize: 11
+                    Layout.fillWidth: true
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.topMargin: 8
+                    spacing: 10
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 40
+                        radius: 10
+                        color: cancelDeleteMA.containsMouse ? "#334155" : surfaceColor
+                        border.color: borderColor
+                        border.width: 1
+                        Text {
+                            anchors.centerIn: parent
+                            text: "取消"
+                            color: textSecondary
+                            font.pointSize: 12
+                        }
+                        MouseArea {
+                            id: cancelDeleteMA
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: deleteConfirmDialog.close()
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 40
+                        radius: 10
+                        color: confirmDeleteMA.containsMouse ? "#DC2626" : dangerColor
+                        Text {
+                            anchors.centerIn: parent
+                            text: "删除"
+                            color: "#FFFFFF"
+                            font.pointSize: 12
+                            font.bold: true
+                        }
+                        MouseArea {
+                            id: confirmDeleteMA
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: deleteConfirmDialog.confirm()
                         }
                     }
                 }

@@ -762,6 +762,25 @@ void AiService::clearSearchHistory()
     saveSearchHistory();
 }
 
+bool AiService::deleteSearchHistory(const QString& query)
+{
+    bool found = false;
+    // 从历史列表中删除
+    for (int i = m_searchHistory.size() - 1; i >= 0; --i) {
+        if (m_searchHistory[i].query == query) {
+            m_searchHistory.removeAt(i);
+            found = true;
+        }
+    }
+    // 从频率统计中删除
+    if (m_searchFrequency.contains(query)) {
+        m_searchFrequency.remove(query);
+    }
+    emit searchHistoryChanged();
+    saveSearchHistory();
+    return found;
+}
+
 QVariantList AiService::getHotSearches(int limit)
 {
     QVariantList result;

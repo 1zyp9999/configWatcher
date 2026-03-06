@@ -185,12 +185,18 @@ public:
      * @return 搜索历史列表
      */
     Q_INVOKABLE QVariantList getSearchHistory(int limit = 20);
-    
+
     /**
      * @brief 清除搜索历史
      */
     Q_INVOKABLE void clearSearchHistory();
-    
+
+    /**
+     * @brief 删除单条搜索历史
+     * @param query 搜索词
+     */
+    Q_INVOKABLE bool deleteSearchHistory(const QString& query);
+
     /**
      * @brief 获取热门搜索（基于历史统计）
      * @param limit 最大返回数量

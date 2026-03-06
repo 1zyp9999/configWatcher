@@ -22,8 +22,8 @@ QT_BEGIN_MOC_NAMESPACE
 QT_WARNING_PUSH
 QT_WARNING_DISABLE_DEPRECATED
 struct qt_meta_stringdata_AiService_t {
-    QByteArrayData data[47];
-    char stringdata0[659];
+    QByteArrayData data[48];
+    char stringdata0[679];
 };
 #define QT_MOC_LITERAL(idx, ofs, len) \
     Q_STATIC_BYTE_ARRAY_DATA_HEADER_INITIALIZER_WITH_OFFSET(len, \
@@ -71,14 +71,15 @@ QT_MOC_LITERAL(35, 478, 8), // "selected"
 QT_MOC_LITERAL(36, 487, 16), // "getSearchHistory"
 QT_MOC_LITERAL(37, 504, 5), // "limit"
 QT_MOC_LITERAL(38, 510, 18), // "clearSearchHistory"
-QT_MOC_LITERAL(39, 529, 14), // "getHotSearches"
-QT_MOC_LITERAL(40, 544, 17), // "saveSearchHistory"
-QT_MOC_LITERAL(41, 562, 17), // "loadSearchHistory"
-QT_MOC_LITERAL(42, 580, 20), // "getSearchHistoryPath"
-QT_MOC_LITERAL(43, 601, 10), // "setEnabled"
-QT_MOC_LITERAL(44, 612, 9), // "isEnabled"
-QT_MOC_LITERAL(45, 622, 18), // "setLearningEnabled"
-QT_MOC_LITERAL(46, 641, 17) // "isLearningEnabled"
+QT_MOC_LITERAL(39, 529, 19), // "deleteSearchHistory"
+QT_MOC_LITERAL(40, 549, 14), // "getHotSearches"
+QT_MOC_LITERAL(41, 564, 17), // "saveSearchHistory"
+QT_MOC_LITERAL(42, 582, 17), // "loadSearchHistory"
+QT_MOC_LITERAL(43, 600, 20), // "getSearchHistoryPath"
+QT_MOC_LITERAL(44, 621, 10), // "setEnabled"
+QT_MOC_LITERAL(45, 632, 9), // "isEnabled"
+QT_MOC_LITERAL(46, 642, 18), // "setLearningEnabled"
+QT_MOC_LITERAL(47, 661, 17) // "isLearningEnabled"
 
     },
     "AiService\0enabledChanged\0\0enabled\0"
@@ -95,10 +96,10 @@ QT_MOC_LITERAL(46, 641, 17) // "isLearningEnabled"
     "loadUserDictionary\0getUserDictionaryPath\0"
     "recordSearchHistory\0resultCount\0"
     "selected\0getSearchHistory\0limit\0"
-    "clearSearchHistory\0getHotSearches\0"
-    "saveSearchHistory\0loadSearchHistory\0"
-    "getSearchHistoryPath\0setEnabled\0"
-    "isEnabled\0setLearningEnabled\0"
+    "clearSearchHistory\0deleteSearchHistory\0"
+    "getHotSearches\0saveSearchHistory\0"
+    "loadSearchHistory\0getSearchHistoryPath\0"
+    "setEnabled\0isEnabled\0setLearningEnabled\0"
     "isLearningEnabled"
 };
 #undef QT_MOC_LITERAL
@@ -109,7 +110,7 @@ static const uint qt_meta_data_AiService[] = {
        8,       // revision
        0,       // classname
        0,    0, // classinfo
-      40,   14, // methods
+      41,   14, // methods
        0,    0, // properties
        0,    0, // enums/sets
        0,    0, // constructors
@@ -117,48 +118,49 @@ static const uint qt_meta_data_AiService[] = {
        3,       // signalCount
 
  // signals: name, argc, parameters, tag, flags
-       1,    1,  214,    2, 0x06 /* Public */,
-       4,    0,  217,    2, 0x06 /* Public */,
-       5,    0,  218,    2, 0x06 /* Public */,
+       1,    1,  219,    2, 0x06 /* Public */,
+       4,    0,  222,    2, 0x06 /* Public */,
+       5,    0,  223,    2, 0x06 /* Public */,
 
  // methods: name, argc, parameters, tag, flags
-       6,    1,  219,    2, 0x02 /* Public */,
-       8,    1,  222,    2, 0x02 /* Public */,
-       9,    1,  225,    2, 0x02 /* Public */,
-      10,    2,  228,    2, 0x02 /* Public */,
-      10,    1,  233,    2, 0x22 /* Public | MethodCloned */,
-      12,    1,  236,    2, 0x02 /* Public */,
-      14,    1,  239,    2, 0x02 /* Public */,
-      15,    3,  242,    2, 0x02 /* Public */,
-      15,    2,  249,    2, 0x22 /* Public | MethodCloned */,
-      15,    1,  254,    2, 0x22 /* Public | MethodCloned */,
-      18,    1,  257,    2, 0x02 /* Public */,
-      19,    1,  260,    2, 0x02 /* Public */,
-      20,    1,  263,    2, 0x02 /* Public */,
-      22,    0,  266,    2, 0x02 /* Public */,
-      23,    0,  267,    2, 0x02 /* Public */,
-      24,    3,  268,    2, 0x02 /* Public */,
-      24,    2,  275,    2, 0x22 /* Public | MethodCloned */,
-      28,    1,  280,    2, 0x02 /* Public */,
-      29,    0,  283,    2, 0x02 /* Public */,
-      30,    0,  284,    2, 0x02 /* Public */,
-      31,    0,  285,    2, 0x02 /* Public */,
-      32,    0,  286,    2, 0x02 /* Public */,
-      33,    3,  287,    2, 0x02 /* Public */,
-      33,    2,  294,    2, 0x22 /* Public | MethodCloned */,
-      33,    1,  299,    2, 0x22 /* Public | MethodCloned */,
-      36,    1,  302,    2, 0x02 /* Public */,
-      36,    0,  305,    2, 0x22 /* Public | MethodCloned */,
-      38,    0,  306,    2, 0x02 /* Public */,
-      39,    1,  307,    2, 0x02 /* Public */,
-      39,    0,  310,    2, 0x22 /* Public | MethodCloned */,
-      40,    0,  311,    2, 0x02 /* Public */,
-      41,    0,  312,    2, 0x02 /* Public */,
-      42,    0,  313,    2, 0x02 /* Public */,
-      43,    1,  314,    2, 0x02 /* Public */,
-      44,    0,  317,    2, 0x02 /* Public */,
-      45,    1,  318,    2, 0x02 /* Public */,
-      46,    0,  321,    2, 0x02 /* Public */,
+       6,    1,  224,    2, 0x02 /* Public */,
+       8,    1,  227,    2, 0x02 /* Public */,
+       9,    1,  230,    2, 0x02 /* Public */,
+      10,    2,  233,    2, 0x02 /* Public */,
+      10,    1,  238,    2, 0x22 /* Public | MethodCloned */,
+      12,    1,  241,    2, 0x02 /* Public */,
+      14,    1,  244,    2, 0x02 /* Public */,
+      15,    3,  247,    2, 0x02 /* Public */,
+      15,    2,  254,    2, 0x22 /* Public | MethodCloned */,
+      15,    1,  259,    2, 0x22 /* Public | MethodCloned */,
+      18,    1,  262,    2, 0x02 /* Public */,
+      19,    1,  265,    2, 0x02 /* Public */,
+      20,    1,  268,    2, 0x02 /* Public */,
+      22,    0,  271,    2, 0x02 /* Public */,
+      23,    0,  272,    2, 0x02 /* Public */,
+      24,    3,  273,    2, 0x02 /* Public */,
+      24,    2,  280,    2, 0x22 /* Public | MethodCloned */,
+      28,    1,  285,    2, 0x02 /* Public */,
+      29,    0,  288,    2, 0x02 /* Public */,
+      30,    0,  289,    2, 0x02 /* Public */,
+      31,    0,  290,    2, 0x02 /* Public */,
+      32,    0,  291,    2, 0x02 /* Public */,
+      33,    3,  292,    2, 0x02 /* Public */,
+      33,    2,  299,    2, 0x22 /* Public | MethodCloned */,
+      33,    1,  304,    2, 0x22 /* Public | MethodCloned */,
+      36,    1,  307,    2, 0x02 /* Public */,
+      36,    0,  310,    2, 0x22 /* Public | MethodCloned */,
+      38,    0,  311,    2, 0x02 /* Public */,
+      39,    1,  312,    2, 0x02 /* Public */,
+      40,    1,  315,    2, 0x02 /* Public */,
+      40,    0,  318,    2, 0x22 /* Public | MethodCloned */,
+      41,    0,  319,    2, 0x02 /* Public */,
+      42,    0,  320,    2, 0x02 /* Public */,
+      43,    0,  321,    2, 0x02 /* Public */,
+      44,    1,  322,    2, 0x02 /* Public */,
+      45,    0,  325,    2, 0x02 /* Public */,
+      46,    1,  326,    2, 0x02 /* Public */,
+      47,    0,  329,    2, 0x02 /* Public */,
 
  // signals: parameters
     QMetaType::Void, QMetaType::Bool,    3,
@@ -194,6 +196,7 @@ static const uint qt_meta_data_AiService[] = {
     QMetaType::QVariantList, QMetaType::Int,   37,
     QMetaType::QVariantList,
     QMetaType::Void,
+    QMetaType::Bool, QMetaType::QString,    7,
     QMetaType::QVariantList, QMetaType::Int,   37,
     QMetaType::QVariantList,
     QMetaType::Bool,
@@ -263,21 +266,23 @@ void AiService::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, v
         case 29: { QVariantList _r = _t->getSearchHistory();
             if (_a[0]) *reinterpret_cast< QVariantList*>(_a[0]) = std::move(_r); }  break;
         case 30: _t->clearSearchHistory(); break;
-        case 31: { QVariantList _r = _t->getHotSearches((*reinterpret_cast< int(*)>(_a[1])));
-            if (_a[0]) *reinterpret_cast< QVariantList*>(_a[0]) = std::move(_r); }  break;
-        case 32: { QVariantList _r = _t->getHotSearches();
-            if (_a[0]) *reinterpret_cast< QVariantList*>(_a[0]) = std::move(_r); }  break;
-        case 33: { bool _r = _t->saveSearchHistory();
+        case 31: { bool _r = _t->deleteSearchHistory((*reinterpret_cast< const QString(*)>(_a[1])));
             if (_a[0]) *reinterpret_cast< bool*>(_a[0]) = std::move(_r); }  break;
-        case 34: { bool _r = _t->loadSearchHistory();
+        case 32: { QVariantList _r = _t->getHotSearches((*reinterpret_cast< int(*)>(_a[1])));
+            if (_a[0]) *reinterpret_cast< QVariantList*>(_a[0]) = std::move(_r); }  break;
+        case 33: { QVariantList _r = _t->getHotSearches();
+            if (_a[0]) *reinterpret_cast< QVariantList*>(_a[0]) = std::move(_r); }  break;
+        case 34: { bool _r = _t->saveSearchHistory();
             if (_a[0]) *reinterpret_cast< bool*>(_a[0]) = std::move(_r); }  break;
-        case 35: { QString _r = _t->getSearchHistoryPath();
+        case 35: { bool _r = _t->loadSearchHistory();
+            if (_a[0]) *reinterpret_cast< bool*>(_a[0]) = std::move(_r); }  break;
+        case 36: { QString _r = _t->getSearchHistoryPath();
             if (_a[0]) *reinterpret_cast< QString*>(_a[0]) = std::move(_r); }  break;
-        case 36: _t->setEnabled((*reinterpret_cast< bool(*)>(_a[1]))); break;
-        case 37: { bool _r = _t->isEnabled();
+        case 37: _t->setEnabled((*reinterpret_cast< bool(*)>(_a[1]))); break;
+        case 38: { bool _r = _t->isEnabled();
             if (_a[0]) *reinterpret_cast< bool*>(_a[0]) = std::move(_r); }  break;
-        case 38: _t->setLearningEnabled((*reinterpret_cast< bool(*)>(_a[1]))); break;
-        case 39: { bool _r = _t->isLearningEnabled();
+        case 39: _t->setLearningEnabled((*reinterpret_cast< bool(*)>(_a[1]))); break;
+        case 40: { bool _r = _t->isLearningEnabled();
             if (_a[0]) *reinterpret_cast< bool*>(_a[0]) = std::move(_r); }  break;
         default: ;
         }
@@ -336,13 +341,13 @@ int AiService::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 40)
+        if (_id < 41)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 40;
+        _id -= 41;
     } else if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 40)
+        if (_id < 41)
             *reinterpret_cast<int*>(_a[0]) = -1;
-        _id -= 40;
+        _id -= 41;
     }
     return _id;
 }
