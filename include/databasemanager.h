@@ -38,6 +38,12 @@ public:
     Q_INVOKABLE QVariantList getChangeLogs(int limit = 50);
     Q_INVOKABLE QVariantList getChangeLogsForFile(const QString& filePath, int limit = 50);
 
+    // 只读字段管理
+    Q_INVOKABLE bool setFieldReadOnly(const QString& filePath, const QString& key, bool readOnly);
+    Q_INVOKABLE bool isFieldReadOnly(const QString& filePath, const QString& key);
+    Q_INVOKABLE QVariantList getReadOnlyFields(const QString& filePath);
+    Q_INVOKABLE QVariantList getAllReadOnlyFields();
+
     // Global instance accessor (set when openDatabase is called)
     static DatabaseManager* instance();
 

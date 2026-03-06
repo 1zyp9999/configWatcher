@@ -22,8 +22,8 @@ QT_BEGIN_MOC_NAMESPACE
 QT_WARNING_PUSH
 QT_WARNING_DISABLE_DEPRECATED
 struct qt_meta_stringdata_DatabaseManager_t {
-    QByteArrayData data[24];
-    char stringdata0[285];
+    QByteArrayData data[29];
+    char stringdata0[366];
 };
 #define QT_MOC_LITERAL(idx, ofs, len) \
     Q_STATIC_BYTE_ARRAY_DATA_HEADER_INITIALIZER_WITH_OFFSET(len, \
@@ -55,7 +55,12 @@ QT_MOC_LITERAL(19, 226, 8), // "oldValue"
 QT_MOC_LITERAL(20, 235, 8), // "newValue"
 QT_MOC_LITERAL(21, 244, 13), // "getChangeLogs"
 QT_MOC_LITERAL(22, 258, 5), // "limit"
-QT_MOC_LITERAL(23, 264, 20) // "getChangeLogsForFile"
+QT_MOC_LITERAL(23, 264, 20), // "getChangeLogsForFile"
+QT_MOC_LITERAL(24, 285, 16), // "setFieldReadOnly"
+QT_MOC_LITERAL(25, 302, 8), // "readOnly"
+QT_MOC_LITERAL(26, 311, 15), // "isFieldReadOnly"
+QT_MOC_LITERAL(27, 327, 17), // "getReadOnlyFields"
+QT_MOC_LITERAL(28, 345, 20) // "getAllReadOnlyFields"
 
     },
     "DatabaseManager\0importIniFile\0\0filePath\0"
@@ -65,7 +70,9 @@ QT_MOC_LITERAL(23, 264, 20) // "getChangeLogsForFile"
     "searchParameters\0query\0mode\0formatFilter\0"
     "listAllKeys\0listFiles\0addChangeLog\0"
     "oldValue\0newValue\0getChangeLogs\0limit\0"
-    "getChangeLogsForFile"
+    "getChangeLogsForFile\0setFieldReadOnly\0"
+    "readOnly\0isFieldReadOnly\0getReadOnlyFields\0"
+    "getAllReadOnlyFields"
 };
 #undef QT_MOC_LITERAL
 
@@ -75,7 +82,7 @@ static const uint qt_meta_data_DatabaseManager[] = {
        8,       // revision
        0,       // classname
        0,    0, // classinfo
-      19,   14, // methods
+      23,   14, // methods
        0,    0, // properties
        0,    0, // enums/sets
        0,    0, // constructors
@@ -83,25 +90,29 @@ static const uint qt_meta_data_DatabaseManager[] = {
        0,       // signalCount
 
  // methods: name, argc, parameters, tag, flags
-       1,    2,  109,    2, 0x02 /* Public */,
-       1,    1,  114,    2, 0x22 /* Public | MethodCloned */,
-       5,    2,  117,    2, 0x02 /* Public */,
-       5,    1,  122,    2, 0x22 /* Public | MethodCloned */,
-       6,    2,  125,    2, 0x02 /* Public */,
-       6,    1,  130,    2, 0x22 /* Public | MethodCloned */,
-       7,    0,  133,    2, 0x02 /* Public */,
-       8,    2,  134,    2, 0x02 /* Public */,
-      11,    0,  139,    2, 0x02 /* Public */,
-      12,    3,  140,    2, 0x02 /* Public */,
-      12,    2,  147,    2, 0x22 /* Public | MethodCloned */,
-      12,    1,  152,    2, 0x22 /* Public | MethodCloned */,
-      16,    0,  155,    2, 0x02 /* Public */,
-      17,    0,  156,    2, 0x02 /* Public */,
-      18,    4,  157,    2, 0x02 /* Public */,
-      21,    1,  166,    2, 0x02 /* Public */,
-      21,    0,  169,    2, 0x22 /* Public | MethodCloned */,
-      23,    2,  170,    2, 0x02 /* Public */,
-      23,    1,  175,    2, 0x22 /* Public | MethodCloned */,
+       1,    2,  129,    2, 0x02 /* Public */,
+       1,    1,  134,    2, 0x22 /* Public | MethodCloned */,
+       5,    2,  137,    2, 0x02 /* Public */,
+       5,    1,  142,    2, 0x22 /* Public | MethodCloned */,
+       6,    2,  145,    2, 0x02 /* Public */,
+       6,    1,  150,    2, 0x22 /* Public | MethodCloned */,
+       7,    0,  153,    2, 0x02 /* Public */,
+       8,    2,  154,    2, 0x02 /* Public */,
+      11,    0,  159,    2, 0x02 /* Public */,
+      12,    3,  160,    2, 0x02 /* Public */,
+      12,    2,  167,    2, 0x22 /* Public | MethodCloned */,
+      12,    1,  172,    2, 0x22 /* Public | MethodCloned */,
+      16,    0,  175,    2, 0x02 /* Public */,
+      17,    0,  176,    2, 0x02 /* Public */,
+      18,    4,  177,    2, 0x02 /* Public */,
+      21,    1,  186,    2, 0x02 /* Public */,
+      21,    0,  189,    2, 0x22 /* Public | MethodCloned */,
+      23,    2,  190,    2, 0x02 /* Public */,
+      23,    1,  195,    2, 0x22 /* Public | MethodCloned */,
+      24,    3,  198,    2, 0x02 /* Public */,
+      26,    2,  205,    2, 0x02 /* Public */,
+      27,    1,  210,    2, 0x02 /* Public */,
+      28,    0,  213,    2, 0x02 /* Public */,
 
  // methods: parameters
     QMetaType::Bool, QMetaType::QString, QMetaType::QString,    3,    4,
@@ -123,6 +134,10 @@ static const uint qt_meta_data_DatabaseManager[] = {
     QMetaType::QVariantList,
     QMetaType::QVariantList, QMetaType::QString, QMetaType::Int,    3,   22,
     QMetaType::QVariantList, QMetaType::QString,    3,
+    QMetaType::Bool, QMetaType::QString, QMetaType::QString, QMetaType::Bool,    3,    9,   25,
+    QMetaType::Bool, QMetaType::QString, QMetaType::QString,    3,    9,
+    QMetaType::QVariantList, QMetaType::QString,    3,
+    QMetaType::QVariantList,
 
        0        // eod
 };
@@ -171,6 +186,14 @@ void DatabaseManager::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int 
             if (_a[0]) *reinterpret_cast< QVariantList*>(_a[0]) = std::move(_r); }  break;
         case 18: { QVariantList _r = _t->getChangeLogsForFile((*reinterpret_cast< const QString(*)>(_a[1])));
             if (_a[0]) *reinterpret_cast< QVariantList*>(_a[0]) = std::move(_r); }  break;
+        case 19: { bool _r = _t->setFieldReadOnly((*reinterpret_cast< const QString(*)>(_a[1])),(*reinterpret_cast< const QString(*)>(_a[2])),(*reinterpret_cast< bool(*)>(_a[3])));
+            if (_a[0]) *reinterpret_cast< bool*>(_a[0]) = std::move(_r); }  break;
+        case 20: { bool _r = _t->isFieldReadOnly((*reinterpret_cast< const QString(*)>(_a[1])),(*reinterpret_cast< const QString(*)>(_a[2])));
+            if (_a[0]) *reinterpret_cast< bool*>(_a[0]) = std::move(_r); }  break;
+        case 21: { QVariantList _r = _t->getReadOnlyFields((*reinterpret_cast< const QString(*)>(_a[1])));
+            if (_a[0]) *reinterpret_cast< QVariantList*>(_a[0]) = std::move(_r); }  break;
+        case 22: { QVariantList _r = _t->getAllReadOnlyFields();
+            if (_a[0]) *reinterpret_cast< QVariantList*>(_a[0]) = std::move(_r); }  break;
         default: ;
         }
     }
@@ -205,13 +228,13 @@ int DatabaseManager::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 19)
+        if (_id < 23)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 19;
+        _id -= 23;
     } else if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 19)
+        if (_id < 23)
             *reinterpret_cast<int*>(_a[0]) = -1;
-        _id -= 19;
+        _id -= 23;
     }
     return _id;
 }

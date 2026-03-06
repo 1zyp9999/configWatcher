@@ -1963,20 +1963,53 @@ Item {
                                         TextField {
                                             id: editField
                                             text: model.value || ""
+                                            readOnly: model.readOnly || false
                                             Layout.fillWidth: true
                                             height: 32
                                             font.pointSize: 11
-                                            color: "#F1F5F9"
-                                            selectionColor: "#2563EB"
-                                            selectedTextColor: "white"
+                                            color: model.readOnly ? "#64748B" : "#F1F5F9"
+                                            selectionColor: model.readOnly ? "transparent" : "#2563EB"
+                                            selectedTextColor: model.readOnly ? "#64748B" : "white"
                                             background: Rectangle {
-                                                color: editField.activeFocus ? "#1E293B" : "#111318"
+                                                color: editField.activeFocus && !model.readOnly ? "#1E293B" : "#111318"
                                                 radius: 8
-                                                border.color: editField.activeFocus ? "#2563EB" : Qt.rgba(1,1,1,0.06)
-                                                border.width: editField.activeFocus ? 2 : 1
+                                                border.color: {
+                                                    if (model.readOnly) return Qt.rgba(1,1,1,0.06)
+                                                    return editField.activeFocus ? "#2563EB" : Qt.rgba(1,1,1,0.06)
+                                                }
+                                                border.width: editField.activeFocus && !model.readOnly ? 2 : 1
                                             }
                                             leftPadding: 10
                                             onTextChanged: { settingsModel.setProperty(index, "value", text) }
+                                        }
+
+                                        // 锁定按钮
+                                        Rectangle {
+                                            width: 32; height: 32; radius: 8
+                                            color: lockMA.containsMouse ? "#1E293B" : "transparent"
+                                            ToolTip {
+                                                visible: lockMA.containsMouse
+                                                text: model.readOnly ? "解锁此字段" : "锁定此字段"
+                                                timeout: 1000
+                                            }
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: model.readOnly ? "🔒" : "🔓"
+                                                font.pointSize: 12
+                                            }
+                                            MouseArea {
+                                                id: lockMA
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    var newReadOnly = !model.readOnly
+                                                    if (DB && typeof DB.setFieldReadOnly === 'function') {
+                                                        DB.setFieldReadOnly(settingsFilePath, model.key, newReadOnly)
+                                                        settingsModel.setProperty(index, "readOnly", newReadOnly)
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -2155,7 +2188,19 @@ Item {
                             onClicked: {
                                 if (!mainPage.settingsFilePath) { console.warn("未选择文件"); return; }
                                 var arr = [];
-                                for (var i=0;i<settingsModel.count;i++) { var it = settingsModel.get(i); arr.push({ key: it.key, value: it.value }); }
+                                var skippedCount = 0;
+                                for (var i=0;i<settingsModel.count;i++) {
+                                    var it = settingsModel.get(i);
+                                    // 跳过只读字段
+                                    if (it.readOnly) {
+                                        skippedCount++
+                                        continue
+                                    }
+                                    arr.push({ key: it.key, value: it.value })
+                                }
+                                if (skippedCount > 0) {
+                                    console.log("跳过", skippedCount, "个只读字段")
+                                }
                                 if (typeof searchVM.writeConfigFile === 'function') {
                                     var ok = searchVM.writeConfigFile(mainPage.settingsFilePath, arr);
                                     if (ok) {
@@ -2182,7 +2227,25 @@ Item {
         } else {
             console.warn('readConfigFile not available; rebuild the app')
         }
-        for (var i=0;i<arr.length;i++) { settingsModel.append({ key: arr[i].key || arr[i].k || '', value: arr[i].value || arr[i].v || '' }) }
+        
+        // 加载只读字段列表
+        var readOnlyKeys = {}
+        if (DB && typeof DB.getReadOnlyFields === 'function') {
+            var roFields = DB.getReadOnlyFields(path)
+            for (var ri=0; ri<roFields.length; ri++) {
+                readOnlyKeys[roFields[ri].key] = true
+            }
+        }
+        
+        // 添加到模型，包含只读状态
+        for (var i=0;i<arr.length;i++) {
+            var key = arr[i].key || arr[i].k || ''
+            settingsModel.append({ 
+                key: key, 
+                value: arr[i].value || arr[i].v || '',
+                readOnly: readOnlyKeys[key] || false
+            })
+        }
     }
 
     function loadChangeLogs() {

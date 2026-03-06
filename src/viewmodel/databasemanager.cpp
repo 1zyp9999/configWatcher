@@ -145,6 +145,16 @@ bool DatabaseManager::openDatabase(const QString& path, const QString& connectio
     q.exec("CREATE INDEX IF NOT EXISTS idx_changelog_file ON change_log(file_path);");
     q.exec("CREATE INDEX IF NOT EXISTS idx_changelog_time ON change_log(changed_at DESC);");
 
+    // 只读字段表
+    q.exec("CREATE TABLE IF NOT EXISTS readonly_fields ("
+           "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+           "file_path TEXT NOT NULL,"
+           "key TEXT NOT NULL,"
+           "created_at DATETIME DEFAULT CURRENT_TIMESTAMP,"
+           "UNIQUE(file_path, key)"
+           ")");
+    q.exec("CREATE INDEX IF NOT EXISTS idx_readonly_file ON readonly_fields(file_path);");
+
     if (setAsGlobalInstance) {
         s_instance = this;
         qDebug() << "[DEBUG] DatabaseManager::openDatabase succeeded, s_instance set to" << this << ", path:" << path;
@@ -730,6 +740,89 @@ QVariantList DatabaseManager::getChangeLogsForFile(const QString& filePath, int 
         m["oldValue"] = q.value(2).toString();
         m["newValue"] = q.value(3).toString();
         m["changedAt"] = q.value(4).toString();
+        results.append(m);
+    }
+    return results;
+}
+
+// ========== 只读字段管理 ==========
+
+bool DatabaseManager::setFieldReadOnly(const QString& filePath, const QString& key, bool readOnly)
+{
+    if (!m_db.isOpen()) return false;
+    
+    QSqlQuery q(m_db);
+    if (readOnly) {
+        q.prepare("INSERT OR REPLACE INTO readonly_fields (file_path, key) VALUES (:path, :key)");
+        q.bindValue(":path", filePath);
+        q.bindValue(":key", key);
+    } else {
+        q.prepare("DELETE FROM readonly_fields WHERE file_path = :path AND key = :key");
+        q.bindValue(":path", filePath);
+        q.bindValue(":key", key);
+    }
+    
+    if (!q.exec()) {
+        qWarning() << "setFieldReadOnly failed:" << q.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::isFieldReadOnly(const QString& filePath, const QString& key)
+{
+    if (!m_db.isOpen()) return false;
+    
+    QSqlQuery q(m_db);
+    q.prepare("SELECT COUNT(*) FROM readonly_fields WHERE file_path = :path AND key = :key");
+    q.bindValue(":path", filePath);
+    q.bindValue(":key", key);
+    
+    if (q.exec() && q.next()) {
+        return q.value(0).toInt() > 0;
+    }
+    return false;
+}
+
+QVariantList DatabaseManager::getReadOnlyFields(const QString& filePath)
+{
+    QVariantList results;
+    if (!m_db.isOpen()) return results;
+    
+    QSqlQuery q(m_db);
+    q.prepare("SELECT key FROM readonly_fields WHERE file_path = :path ORDER BY key");
+    q.bindValue(":path", filePath);
+    
+    if (!q.exec()) {
+        qWarning() << "getReadOnlyFields failed:" << q.lastError().text();
+        return results;
+    }
+    
+    while (q.next()) {
+        QVariantMap m;
+        m["key"] = q.value(0).toString();
+        results.append(m);
+    }
+    return results;
+}
+
+QVariantList DatabaseManager::getAllReadOnlyFields()
+{
+    QVariantList results;
+    if (!m_db.isOpen()) return results;
+    
+    QSqlQuery q(m_db);
+    q.prepare("SELECT file_path, key FROM readonly_fields ORDER BY file_path, key");
+    
+    if (!q.exec()) {
+        qWarning() << "getAllReadOnlyFields failed:" << q.lastError().text();
+        return results;
+    }
+    
+    while (q.next()) {
+        QVariantMap m;
+        m["filePath"] = q.value(0).toString();
+        m["key"] = q.value(1).toString();
         results.append(m);
     }
     return results;
