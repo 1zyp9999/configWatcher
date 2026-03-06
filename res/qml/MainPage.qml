@@ -2003,11 +2003,11 @@ Item {
                                                 hoverEnabled: true
                                                 cursorShape: Qt.PointingHandCursor
                                                 onClicked: {
-                                                    var newReadOnly = !model.readOnly
-                                                    if (DB && typeof DB.setFieldReadOnly === 'function') {
-                                                        DB.setFieldReadOnly(settingsFilePath, model.key, newReadOnly)
-                                                        settingsModel.setProperty(index, "readOnly", newReadOnly)
-                                                    }
+                                                    // 显示密码输入对话框
+                                                    lockDialog.currentKey = model.key
+                                                    lockDialog.currentReadOnly = model.readOnly
+                                                    lockDialog.currentIndex = index
+                                                    lockDialog.open()
                                                 }
                                             }
                                         }
@@ -2740,6 +2740,264 @@ Item {
         var hot = searchVM.getHotSearches(20)
         for (var j = 0; j < hot.length; j++) {
             hotSearchModel.append({ query: hot[j].query, frequency: hot[j].frequency })
+        }
+    }
+
+    // ===== 锁定/解锁密码对话框 =====
+    Rectangle {
+        id: lockOverlay
+        anchors.fill: parent
+        color: "#000000AA"
+        visible: lockDialog.visible
+        z: 2000
+        MouseArea { anchors.fill: parent; onClicked: lockDialog.close() }
+
+        Rectangle {
+            id: lockDialog
+            width: 380
+            height: lockContent.implicitHeight + 40
+            anchors.centerIn: parent
+            radius: 16
+            color: cardColor
+            border.color: primaryColor
+            border.width: 2
+            visible: false
+
+            property string currentKey: ""
+            property bool currentReadOnly: false
+            property int currentIndex: -1
+
+            function open() {
+                passwordField.text = ""
+                passwordField.forceActiveFocus()
+                visible = true
+                lockOverlay.visible = true
+            }
+
+            function close() {
+                visible = false
+                lockOverlay.visible = false
+                currentKey = ""
+                currentReadOnly = false
+                currentIndex = -1
+            }
+
+            function confirm() {
+                if (passwordField.text === "aoi2024") {
+                    var newReadOnly = !currentReadOnly
+                    if (DB && typeof DB.setFieldReadOnly === 'function') {
+                        DB.setFieldReadOnly(settingsFilePath, currentKey, newReadOnly)
+                        settingsModel.setProperty(currentIndex, "readOnly", newReadOnly)
+                    }
+                    close()
+                } else {
+                    passwordError.visible = true
+                    passwordField.selectAll()
+                    passwordField.forceActiveFocus()
+                }
+            }
+
+            ColumnLayout {
+                id: lockContent
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 24
+                spacing: 16
+
+                // 标题
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 12
+
+                    Rectangle {
+                        width: 40; height: 40; radius: 10
+                        color: primaryColor
+                        Text {
+                            anchors.centerIn: parent
+                            text: "CW"
+                            color: "#FFFFFF"
+                            font.pointSize: 14
+                            font.bold: true
+                        }
+                    }
+
+                    ColumnLayout {
+                        spacing: 4
+                        Text {
+                            text: currentReadOnly ? "解锁字段" : "锁定字段"
+                            color: textPrimary
+                            font.pointSize: 15
+                            font.bold: true
+                        }
+                        Text {
+                            text: "操作需要验证密码"
+                            color: textMuted
+                            font.pointSize: 10
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    // 关闭按钮
+                    Rectangle {
+                        width: 32; height: 32; radius: 16
+                        color: closeLockMA.containsMouse ? "#374151" : "transparent"
+                        Text { text: "✕"; anchors.centerIn: parent; color: "#94A3B8"; font.pointSize: 12 }
+                        MouseArea {
+                            id: closeLockMA; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onClicked: lockDialog.close()
+                        }
+                    }
+                }
+
+                // 字段名显示
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 40
+                    radius: 8
+                    color: "#0F1117"
+                    border.color: Qt.rgba(1,1,1,0.08)
+                    Text {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        anchors.margins: 12
+                        text: lockDialog.currentKey || ""
+                        color: primaryLight
+                        font.pointSize: 11
+                        font.family: "monospace"
+                        elide: Text.ElideMiddle
+                    }
+                }
+
+                // 密码输入
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+
+                    Text {
+                        text: "请输入密码"
+                        color: textSecondary
+                        font.pointSize: 11
+                    }
+
+                    TextField {
+                        id: passwordField
+                        Layout.fillWidth: true
+                        height: 40
+                        font.pointSize: 13
+                        color: textPrimary
+                        echoMode: TextInput.Password
+                        placeholderText: "输入密码..."
+                        placeholderTextColor: textMuted
+                        selectionColor: primaryColor
+                        selectedTextColor: "white"
+
+                        background: Rectangle {
+                            color: passwordField.activeFocus ? "#1E293B" : "#111318"
+                            radius: 10
+                            border.color: passwordError.visible ? "#EF4444" : (passwordField.activeFocus ? primaryColor : borderColor)
+                            border.width: passwordField.activeFocus ? 2 : 1
+                        }
+
+                        onAccepted: lockDialog.confirm()
+
+                        Keys.onPressed: {
+                            if (event.key === Qt.Key_Escape) {
+                                lockDialog.close()
+                            }
+                        }
+                    }
+
+                    Text {
+                        id: passwordError
+                        text: "密码错误，请重试"
+                        color: "#EF4444"
+                        font.pointSize: 10
+                        visible: false
+                    }
+                }
+
+                // 提示
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 36
+                    radius: 8
+                    color: Qt.rgba(37/255, 99/255, 235/255, 0.1)
+                    border.color: Qt.rgba(37/255, 99/255, 235/255, 0.2)
+                    border.width: 1
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 8
+                        spacing: 6
+
+                        Text { text: "💡"; font.pointSize: 12 }
+                        Text {
+                            text: "锁定后的字段在保存时不会被修改"
+                            color: textMuted
+                            font.pointSize: 10
+                            Layout.fillWidth: true
+                        }
+                    }
+                }
+
+                // 按钮
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.topMargin: 8
+                    spacing: 10
+
+                    // 取消按钮
+                    Rectangle {
+                        id: cancelBtn
+                        Layout.fillWidth: true
+                        height: 40
+                        radius: 10
+                        color: cancelMA.containsMouse ? "#334155" : surfaceColor
+                        border.color: borderColor
+                        border.width: 1
+                        Text {
+                            anchors.centerIn: parent
+                            text: "取消"
+                            color: textSecondary
+                            font.pointSize: 12
+                        }
+                        MouseArea {
+                            id: cancelMA
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: lockDialog.close()
+                        }
+                    }
+
+                    // 锁定/解锁按钮
+                    Rectangle {
+                        id: confirmBtn
+                        Layout.fillWidth: true
+                        height: 40
+                        radius: 10
+                        color: confirmMA.containsMouse ? "#3B82F6" : primaryColor
+                        Text {
+                            anchors.centerIn: parent
+                            text: lockDialog.currentReadOnly ? "解锁" : "锁定"
+                            color: "#FFFFFF"
+                            font.pointSize: 12
+                            font.bold: true
+                        }
+                        MouseArea {
+                            id: confirmMA
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: lockDialog.confirm()
+                        }
+                    }
+                }
+            }
         }
     }
 }
