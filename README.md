@@ -115,14 +115,13 @@ ConfigWatcher/
 
 ### 数据存储
 
-- **数据库**: `~/.config/Leichen/configwatcher.db`
-- **日志文件**: `~/.config/log/configwatcher.log`
-- **配置文件目录**: `~/.config/Leichen/`
+- **数据库**: `configwatcher.db`
+- **日志文件**: `configwatcher.log`
 
 ## 版本信息
 
-- **当前版本**: v1.1.9
-- **作者**: 张宇鹏
+- **当前版本**: v1.2.9
+- **作者**: jack zhang
 - **构建时间**: 见程序上下文属性 `APP_BUILD_TIME`
 
 ## 许可证
