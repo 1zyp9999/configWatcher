@@ -22,8 +22,8 @@ QT_BEGIN_MOC_NAMESPACE
 QT_WARNING_PUSH
 QT_WARNING_DISABLE_DEPRECATED
 struct qt_meta_stringdata_DatabaseManager_t {
-    QByteArrayData data[29];
-    char stringdata0[366];
+    QByteArrayData data[36];
+    char stringdata0[481];
 };
 #define QT_MOC_LITERAL(idx, ofs, len) \
     Q_STATIC_BYTE_ARRAY_DATA_HEADER_INITIALIZER_WITH_OFFSET(len, \
@@ -60,7 +60,14 @@ QT_MOC_LITERAL(24, 285, 16), // "setFieldReadOnly"
 QT_MOC_LITERAL(25, 302, 8), // "readOnly"
 QT_MOC_LITERAL(26, 311, 15), // "isFieldReadOnly"
 QT_MOC_LITERAL(27, 327, 17), // "getReadOnlyFields"
-QT_MOC_LITERAL(28, 345, 20) // "getAllReadOnlyFields"
+QT_MOC_LITERAL(28, 345, 20), // "getAllReadOnlyFields"
+QT_MOC_LITERAL(29, 366, 14), // "importTemplate"
+QT_MOC_LITERAL(30, 381, 16), // "templateFilePath"
+QT_MOC_LITERAL(31, 398, 14), // "targetFilePath"
+QT_MOC_LITERAL(32, 413, 13), // "applyTemplate"
+QT_MOC_LITERAL(33, 427, 16), // "getTemplateFiles"
+QT_MOC_LITERAL(34, 444, 14), // "deleteTemplate"
+QT_MOC_LITERAL(35, 459, 21) // "getTemplateFieldCount"
 
     },
     "DatabaseManager\0importIniFile\0\0filePath\0"
@@ -72,7 +79,10 @@ QT_MOC_LITERAL(28, 345, 20) // "getAllReadOnlyFields"
     "oldValue\0newValue\0getChangeLogs\0limit\0"
     "getChangeLogsForFile\0setFieldReadOnly\0"
     "readOnly\0isFieldReadOnly\0getReadOnlyFields\0"
-    "getAllReadOnlyFields"
+    "getAllReadOnlyFields\0importTemplate\0"
+    "templateFilePath\0targetFilePath\0"
+    "applyTemplate\0getTemplateFiles\0"
+    "deleteTemplate\0getTemplateFieldCount"
 };
 #undef QT_MOC_LITERAL
 
@@ -82,7 +92,7 @@ static const uint qt_meta_data_DatabaseManager[] = {
        8,       // revision
        0,       // classname
        0,    0, // classinfo
-      23,   14, // methods
+      28,   14, // methods
        0,    0, // properties
        0,    0, // enums/sets
        0,    0, // constructors
@@ -90,29 +100,34 @@ static const uint qt_meta_data_DatabaseManager[] = {
        0,       // signalCount
 
  // methods: name, argc, parameters, tag, flags
-       1,    2,  129,    2, 0x02 /* Public */,
-       1,    1,  134,    2, 0x22 /* Public | MethodCloned */,
-       5,    2,  137,    2, 0x02 /* Public */,
-       5,    1,  142,    2, 0x22 /* Public | MethodCloned */,
-       6,    2,  145,    2, 0x02 /* Public */,
-       6,    1,  150,    2, 0x22 /* Public | MethodCloned */,
-       7,    0,  153,    2, 0x02 /* Public */,
-       8,    2,  154,    2, 0x02 /* Public */,
-      11,    0,  159,    2, 0x02 /* Public */,
-      12,    3,  160,    2, 0x02 /* Public */,
-      12,    2,  167,    2, 0x22 /* Public | MethodCloned */,
-      12,    1,  172,    2, 0x22 /* Public | MethodCloned */,
-      16,    0,  175,    2, 0x02 /* Public */,
-      17,    0,  176,    2, 0x02 /* Public */,
-      18,    4,  177,    2, 0x02 /* Public */,
-      21,    1,  186,    2, 0x02 /* Public */,
-      21,    0,  189,    2, 0x22 /* Public | MethodCloned */,
-      23,    2,  190,    2, 0x02 /* Public */,
-      23,    1,  195,    2, 0x22 /* Public | MethodCloned */,
-      24,    3,  198,    2, 0x02 /* Public */,
-      26,    2,  205,    2, 0x02 /* Public */,
-      27,    1,  210,    2, 0x02 /* Public */,
-      28,    0,  213,    2, 0x02 /* Public */,
+       1,    2,  154,    2, 0x02 /* Public */,
+       1,    1,  159,    2, 0x22 /* Public | MethodCloned */,
+       5,    2,  162,    2, 0x02 /* Public */,
+       5,    1,  167,    2, 0x22 /* Public | MethodCloned */,
+       6,    2,  170,    2, 0x02 /* Public */,
+       6,    1,  175,    2, 0x22 /* Public | MethodCloned */,
+       7,    0,  178,    2, 0x02 /* Public */,
+       8,    2,  179,    2, 0x02 /* Public */,
+      11,    0,  184,    2, 0x02 /* Public */,
+      12,    3,  185,    2, 0x02 /* Public */,
+      12,    2,  192,    2, 0x22 /* Public | MethodCloned */,
+      12,    1,  197,    2, 0x22 /* Public | MethodCloned */,
+      16,    0,  200,    2, 0x02 /* Public */,
+      17,    0,  201,    2, 0x02 /* Public */,
+      18,    4,  202,    2, 0x02 /* Public */,
+      21,    1,  211,    2, 0x02 /* Public */,
+      21,    0,  214,    2, 0x22 /* Public | MethodCloned */,
+      23,    2,  215,    2, 0x02 /* Public */,
+      23,    1,  220,    2, 0x22 /* Public | MethodCloned */,
+      24,    3,  223,    2, 0x02 /* Public */,
+      26,    2,  230,    2, 0x02 /* Public */,
+      27,    1,  235,    2, 0x02 /* Public */,
+      28,    0,  238,    2, 0x02 /* Public */,
+      29,    2,  239,    2, 0x02 /* Public */,
+      32,    1,  244,    2, 0x02 /* Public */,
+      33,    0,  247,    2, 0x02 /* Public */,
+      34,    1,  248,    2, 0x02 /* Public */,
+      35,    1,  251,    2, 0x02 /* Public */,
 
  // methods: parameters
     QMetaType::Bool, QMetaType::QString, QMetaType::QString,    3,    4,
@@ -138,6 +153,11 @@ static const uint qt_meta_data_DatabaseManager[] = {
     QMetaType::Bool, QMetaType::QString, QMetaType::QString,    3,    9,
     QMetaType::QVariantList, QMetaType::QString,    3,
     QMetaType::QVariantList,
+    QMetaType::Bool, QMetaType::QString, QMetaType::QString,   30,   31,
+    QMetaType::Bool, QMetaType::QString,   30,
+    QMetaType::QVariantList,
+    QMetaType::Bool, QMetaType::QString,   30,
+    QMetaType::Int, QMetaType::QString,   30,
 
        0        // eod
 };
@@ -194,6 +214,16 @@ void DatabaseManager::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int 
             if (_a[0]) *reinterpret_cast< QVariantList*>(_a[0]) = std::move(_r); }  break;
         case 22: { QVariantList _r = _t->getAllReadOnlyFields();
             if (_a[0]) *reinterpret_cast< QVariantList*>(_a[0]) = std::move(_r); }  break;
+        case 23: { bool _r = _t->importTemplate((*reinterpret_cast< const QString(*)>(_a[1])),(*reinterpret_cast< const QString(*)>(_a[2])));
+            if (_a[0]) *reinterpret_cast< bool*>(_a[0]) = std::move(_r); }  break;
+        case 24: { bool _r = _t->applyTemplate((*reinterpret_cast< const QString(*)>(_a[1])));
+            if (_a[0]) *reinterpret_cast< bool*>(_a[0]) = std::move(_r); }  break;
+        case 25: { QVariantList _r = _t->getTemplateFiles();
+            if (_a[0]) *reinterpret_cast< QVariantList*>(_a[0]) = std::move(_r); }  break;
+        case 26: { bool _r = _t->deleteTemplate((*reinterpret_cast< const QString(*)>(_a[1])));
+            if (_a[0]) *reinterpret_cast< bool*>(_a[0]) = std::move(_r); }  break;
+        case 27: { int _r = _t->getTemplateFieldCount((*reinterpret_cast< const QString(*)>(_a[1])));
+            if (_a[0]) *reinterpret_cast< int*>(_a[0]) = std::move(_r); }  break;
         default: ;
         }
     }
@@ -228,13 +258,13 @@ int DatabaseManager::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 23)
+        if (_id < 28)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 23;
+        _id -= 28;
     } else if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 23)
+        if (_id < 28)
             *reinterpret_cast<int*>(_a[0]) = -1;
-        _id -= 23;
+        _id -= 28;
     }
     return _id;
 }

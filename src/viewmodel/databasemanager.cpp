@@ -155,6 +155,22 @@ bool DatabaseManager::openDatabase(const QString& path, const QString& connectio
            ")");
     q.exec("CREATE INDEX IF NOT EXISTS idx_readonly_file ON readonly_fields(file_path);");
 
+    // 模板表
+    q.exec("CREATE TABLE IF NOT EXISTS templates ("
+           "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+           "file_path TEXT NOT NULL UNIQUE,"
+           "name TEXT,"
+           "imported_at DATETIME DEFAULT CURRENT_TIMESTAMP"
+           ")");
+    q.exec("CREATE TABLE IF NOT EXISTS template_fields ("
+           "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+           "template_id INTEGER NOT NULL,"
+           "key TEXT NOT NULL,"
+           "UNIQUE(template_id, key),"
+           "FOREIGN KEY(template_id) REFERENCES templates(id) ON DELETE CASCADE"
+           ")");
+    q.exec("CREATE INDEX IF NOT EXISTS idx_template_fields ON template_fields(template_id);");
+
     if (setAsGlobalInstance) {
         s_instance = this;
         qDebug() << "[DEBUG] DatabaseManager::openDatabase succeeded, s_instance set to" << this << ", path:" << path;
@@ -810,15 +826,15 @@ QVariantList DatabaseManager::getAllReadOnlyFields()
 {
     QVariantList results;
     if (!m_db.isOpen()) return results;
-    
+
     QSqlQuery q(m_db);
     q.prepare("SELECT file_path, key FROM readonly_fields ORDER BY file_path, key");
-    
+
     if (!q.exec()) {
         qWarning() << "getAllReadOnlyFields failed:" << q.lastError().text();
         return results;
     }
-    
+
     while (q.next()) {
         QVariantMap m;
         m["filePath"] = q.value(0).toString();
@@ -826,4 +842,247 @@ QVariantList DatabaseManager::getAllReadOnlyFields()
         results.append(m);
     }
     return results;
+}
+
+// ========== 模板管理 ==========
+
+bool DatabaseManager::importTemplate(const QString& templateFilePath, const QString& targetFilePath)
+{
+    if (!m_db.isOpen()) return false;
+    if (templateFilePath.isEmpty()) return false;
+
+    QSqlQuery q(m_db);
+
+    // 首先读取模板文件，获取所有字段
+    QVariantList fields;
+    QFile f(templateFilePath);
+    if (!f.exists()) {
+        qWarning() << "Template file not found:" << templateFilePath;
+        return false;
+    }
+
+    // 使用 readConfigFile 逻辑读取字段
+    if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) return false;
+    QString suffix = QFileInfo(templateFilePath).suffix().toLower();
+
+    if (suffix == "ini") {
+        QTextStream in(&f);
+        QString section;
+        while (!in.atEnd()) {
+            QString line = in.readLine();
+            QString t = line.trimmed();
+            if (t.isEmpty() || t.startsWith(';') || t.startsWith('#')) continue;
+            if (t.startsWith('[') && t.endsWith(']')) {
+                section = t.mid(1, t.size()-2).trimmed();
+                continue;
+            }
+            int eq = line.indexOf('=');
+            if (eq > 0) {
+                QString key = line.left(eq).trimmed();
+                QString fullKey = section.isEmpty() ? key : (section + "." + key);
+                fields.append(fullKey);
+            }
+        }
+    } else if (suffix == "json") {
+        QByteArray data = f.readAll();
+        QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (doc.isObject()) {
+            QJsonObject obj = doc.object();
+            for (auto it = obj.begin(); it != obj.end(); ++it) {
+                fields.append(it.key());
+            }
+        }
+    } else if (suffix == "xml") {
+        QXmlStreamReader xml(&f);
+        QStringList sectionStack;
+        while (!xml.atEnd() && !xml.hasError()) {
+            QXmlStreamReader::TokenType token = xml.readNext();
+            if (token == QXmlStreamReader::StartElement) {
+                sectionStack.append(xml.name().toString());
+                QXmlStreamAttributes attrs = xml.attributes();
+                for (const QXmlStreamAttribute& attr : attrs) {
+                    QString prefix = sectionStack.join(".");
+                    fields.append(prefix + "[@" + attr.name().toString() + "]");
+                }
+            } else if (token == QXmlStreamReader::EndElement) {
+                if (!sectionStack.isEmpty()) sectionStack.removeLast();
+            }
+        }
+    }
+    f.close();
+
+    if (fields.isEmpty()) {
+        qWarning() << "No fields found in template file";
+        return false;
+    }
+
+    // 开始事务
+    q.exec("BEGIN TRANSACTION");
+
+    // 插入或更新模板记录
+    QString templateName = QFileInfo(templateFilePath).fileName();
+    q.prepare("INSERT OR REPLACE INTO templates (file_path, name) VALUES (:path, :name)");
+    q.bindValue(":path", templateFilePath);
+    q.bindValue(":name", templateName);
+    if (!q.exec()) {
+        q.exec("ROLLBACK");
+        qWarning() << "Failed to insert template:" << q.lastError().text();
+        return false;
+    }
+
+    // 获取模板 ID
+    q.prepare("SELECT id FROM templates WHERE file_path = :path");
+    q.bindValue(":path", templateFilePath);
+    int templateId = -1;
+    if (q.exec() && q.next()) {
+        templateId = q.value(0).toInt();
+    }
+
+    if (templateId < 0) {
+        q.exec("ROLLBACK");
+        return false;
+    }
+
+    // 删除旧的字段
+    q.prepare("DELETE FROM template_fields WHERE template_id = :tid");
+    q.bindValue(":tid", templateId);
+    q.exec();
+
+    // 插入新字段
+    q.prepare("INSERT OR IGNORE INTO template_fields (template_id, key) VALUES (:tid, :key)");
+    for (const QVariant& field : fields) {
+        q.bindValue(":tid", templateId);
+        q.bindValue(":key", field.toString());
+        if (!q.exec()) {
+            q.exec("ROLLBACK");
+            return false;
+        }
+    }
+
+    // 如果指定了目标文件，自动应用模板（锁定字段）
+    if (!targetFilePath.isEmpty()) {
+        for (const QVariant& field : fields) {
+            q.prepare("INSERT OR REPLACE INTO readonly_fields (file_path, key) VALUES (:path, :key)");
+            q.bindValue(":path", targetFilePath);
+            q.bindValue(":key", field.toString());
+            if (!q.exec()) {
+                q.exec("ROLLBACK");
+                return false;
+            }
+        }
+    }
+
+    q.exec("COMMIT");
+    return true;
+}
+
+bool DatabaseManager::applyTemplate(const QString& templateFilePath)
+{
+    if (!m_db.isOpen()) return false;
+
+    QSqlQuery q(m_db);
+
+    // 获取模板 ID
+    q.prepare("SELECT id FROM templates WHERE file_path = :path");
+    q.bindValue(":path", templateFilePath);
+    int templateId = -1;
+    if (q.exec() && q.next()) {
+        templateId = q.value(0).toInt();
+    }
+
+    if (templateId < 0) return false;
+
+    // 获取模板中的所有字段
+    q.prepare("SELECT key FROM template_fields WHERE template_id = :tid");
+    q.bindValue(":tid", templateId);
+    if (!q.exec()) return false;
+
+    QStringList keys;
+    while (q.next()) {
+        keys.append(q.value(0).toString());
+    }
+
+    if (keys.isEmpty()) return false;
+
+    // 获取所有文件
+    q.prepare("SELECT path FROM files");
+    if (!q.exec()) return false;
+
+    q.exec("BEGIN TRANSACTION");
+    while (q.next()) {
+        QString filePath = q.value(0).toString();
+        // 为该文件的所有模板字段设置只读
+        QSqlQuery insertQ(m_db);
+        insertQ.prepare("INSERT OR REPLACE INTO readonly_fields (file_path, key) VALUES (:path, :key)");
+        for (const QString& key : keys) {
+            insertQ.bindValue(":path", filePath);
+            insertQ.bindValue(":key", key);
+            insertQ.exec();
+        }
+    }
+    q.exec("COMMIT");
+
+    return true;
+}
+
+QVariantList DatabaseManager::getTemplateFiles()
+{
+    QVariantList results;
+    if (!m_db.isOpen()) return results;
+
+    QSqlQuery q(m_db);
+    q.prepare("SELECT file_path, name, imported_at FROM templates ORDER BY imported_at DESC");
+
+    if (!q.exec()) {
+        qWarning() << "getTemplateFiles failed:" << q.lastError().text();
+        return results;
+    }
+
+    while (q.next()) {
+        QVariantMap m;
+        m["filePath"] = q.value(0).toString();
+        m["name"] = q.value(1).toString();
+        m["importedAt"] = q.value(2).toString();
+        results.append(m);
+    }
+    return results;
+}
+
+bool DatabaseManager::deleteTemplate(const QString& templateFilePath)
+{
+    if (!m_db.isOpen()) return false;
+
+    QSqlQuery q(m_db);
+    q.prepare("DELETE FROM templates WHERE file_path = :path");
+    q.bindValue(":path", templateFilePath);
+
+    if (!q.exec()) {
+        qWarning() << "deleteTemplate failed:" << q.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+int DatabaseManager::getTemplateFieldCount(const QString& templateFilePath)
+{
+    if (!m_db.isOpen()) return 0;
+
+    QSqlQuery q(m_db);
+    q.prepare("SELECT id FROM templates WHERE file_path = :path");
+    q.bindValue(":path", templateFilePath);
+
+    int templateId = -1;
+    if (q.exec() && q.next()) {
+        templateId = q.value(0).toInt();
+    }
+
+    if (templateId < 0) return 0;
+
+    q.prepare("SELECT COUNT(*) FROM template_fields WHERE template_id = :tid");
+    q.bindValue(":tid", templateId);
+
+    if (q.exec() && q.next()) {
+        return q.value(0).toInt();
+    }
+    return 0;
 }

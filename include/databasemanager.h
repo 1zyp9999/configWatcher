@@ -44,6 +44,13 @@ public:
     Q_INVOKABLE QVariantList getReadOnlyFields(const QString& filePath);
     Q_INVOKABLE QVariantList getAllReadOnlyFields();
 
+    // 模板管理
+    Q_INVOKABLE bool importTemplate(const QString& templateFilePath, const QString& targetFilePath);
+    Q_INVOKABLE bool applyTemplate(const QString& templateFilePath);
+    Q_INVOKABLE QVariantList getTemplateFiles();
+    Q_INVOKABLE bool deleteTemplate(const QString& templateFilePath);
+    Q_INVOKABLE int getTemplateFieldCount(const QString& templateFilePath);
+
     // Global instance accessor (set when openDatabase is called)
     static DatabaseManager* instance();
 

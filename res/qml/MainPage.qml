@@ -18,6 +18,8 @@ Item {
     property bool translationsVisible: false
     property bool suggestionsVisible: false
     property bool settingsVisible: false
+    property bool changeLogVisible: false
+    property bool templateVisible: false
     property string settingsFilePath: ""
     signal openFileRequested(string filePath)
     ListModel { id: settingsModel }
@@ -26,7 +28,7 @@ Item {
     ListModel { id: historyModel }
     ListModel { id: hotSearchModel }
     ListModel { id: changeLogModel }
-    property bool changeLogVisible: false
+    ListModel { id: templateModel }
 
     // ===== 深色配色方案（与登录界面统一） =====
     property color primaryColor: "#2563EB"        // 主色：蓝
@@ -1838,28 +1840,62 @@ Item {
                                 }
                             }
                         }
+
+                        // 导入模板按钮
+                        Rectangle {
+                            width: 100; height: 36; radius: 10
+                            color: importTemplateMA.containsMouse ? "#1E3A5F" : "transparent"
+                            border.color: "#60A5FA"; border.width: 1
+                            ToolTip { visible: importTemplateMA.containsMouse; text: "导入模板"; delay: 400 }
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 10
+                                anchors.rightMargin: 10
+                                spacing: 6
+                                Text { text: "📁"; font.pointSize: 14 }
+                                Text {
+                                    text: "导入模板"
+                                    color: "#60A5FA"
+                                    font.pointSize: 11
+                                    font.bold: true
+                                }
+                            }
+                            MouseArea {
+                                id: importTemplateMA
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    importTemplateDialog.open()
+                                }
+                            }
+                        }
                     }
                 }
 
-                // ===== 选项卡栏：编辑 / 修改记录 =====
+                // ===== 选项卡栏：编辑 / 修改记录 / 模板 =====
                 RowLayout {
                     Layout.fillWidth: true
                     Layout.bottomMargin: 8
                     spacing: 0
 
                     Repeater {
-                        model: [qsTr("✏️ 编辑"), qsTr("📋 修改记录")]
+                        model: [qsTr("✏️ 编辑"), qsTr("📋 修改记录"), qsTr("📁 模板管理")]
                         Rectangle {
                             Layout.preferredWidth: 130; height: 36; radius: 8
                             color: {
-                                var isActive = (index === 0 && !mainPage.changeLogVisible) || (index === 1 && mainPage.changeLogVisible)
+                                var isActive = (index === 0 && !mainPage.changeLogVisible && !mainPage.templateVisible) ||
+                                               (index === 1 && mainPage.changeLogVisible) ||
+                                               (index === 2 && mainPage.templateVisible)
                                 return isActive ? "#2563EB" : "transparent"
                             }
                             Text {
                                 anchors.centerIn: parent
                                 text: modelData
                                 color: {
-                                    var isActive = (index === 0 && !mainPage.changeLogVisible) || (index === 1 && mainPage.changeLogVisible)
+                                    var isActive = (index === 0 && !mainPage.changeLogVisible && !mainPage.templateVisible) ||
+                                                   (index === 1 && mainPage.changeLogVisible) ||
+                                                   (index === 2 && mainPage.templateVisible)
                                     return isActive ? "white" : "#64748B"
                                 }
                                 font.pointSize: 11; font.bold: true
@@ -1867,8 +1903,9 @@ Item {
                             MouseArea {
                                 anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                                 onClicked: {
-                                    if (index === 0) mainPage.changeLogVisible = false
-                                    else { mainPage.changeLogVisible = true; loadChangeLogs() }
+                                    if (index === 0) { mainPage.changeLogVisible = false; mainPage.templateVisible = false }
+                                    else if (index === 1) { mainPage.changeLogVisible = true; mainPage.templateVisible = false; loadChangeLogs() }
+                                    else { mainPage.changeLogVisible = false; mainPage.templateVisible = true; loadTemplates() }
                                 }
                             }
                         }
@@ -2133,6 +2170,159 @@ Item {
                                                     color: "#4ADE80"; font.pointSize: 9; font.bold: true
                                                     elide: Text.ElideRight
                                                     maximumLineCount: 1
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ===== 模板管理面板 =====
+                Item {
+                    visible: mainPage.templateVisible
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        spacing: 0
+
+                        // 表头
+                        Rectangle {
+                            Layout.fillWidth: true; height: 36; radius: 8
+                            color: Qt.rgba(1,1,1,0.03)
+                            RowLayout {
+                                anchors.fill: parent; anchors.leftMargin: 16; anchors.rightMargin: 16; spacing: 12
+                                Text { text: qsTr("模板名称"); color: "#64748B"; font.pointSize: 10; font.bold: true; Layout.preferredWidth: 200 }
+                                Text { text: qsTr("导入时间"); color: "#64748B"; font.pointSize: 10; font.bold: true; Layout.preferredWidth: 150 }
+                                Text { text: qsTr("字段数量"); color: "#64748B"; font.pointSize: 10; font.bold: true; Layout.preferredWidth: 100 }
+                                Text { text: qsTr("操作"); color: "#64748B"; font.pointSize: 10; font.bold: true; Layout.fillWidth: true }
+                            }
+                        }
+
+                        // 空状态
+                        Item {
+                            visible: templateModel.count === 0
+                            Layout.fillWidth: true; Layout.fillHeight: true
+                            ColumnLayout {
+                                anchors.centerIn: parent; spacing: 8
+                                Text { text: "📁"; font.pointSize: 36; Layout.alignment: Qt.AlignHCenter; opacity: 0.4 }
+                                Text { text: qsTr("暂无模板"); color: "#475569"; font.pointSize: 13; Layout.alignment: Qt.AlignHCenter }
+                                Text { text: qsTr("导入配置文件作为模板，可快速锁定批量字段"); color: "#334155"; font.pointSize: 10; Layout.alignment: Qt.AlignHCenter }
+                            }
+                        }
+
+                        // 模板列表
+                        ScrollView {
+                            visible: templateModel.count > 0
+                            Layout.fillWidth: true; Layout.fillHeight: true
+                            clip: true
+                            ScrollBar.vertical.policy: ScrollBar.AsNeeded
+
+                            ListView {
+                                id: templateListView
+                                model: templateModel
+                                spacing: 2
+
+                                delegate: Rectangle {
+                                    width: templateListView.width - 8
+                                    height: 48
+                                    radius: 8
+                                    color: templateItemMA.containsMouse ? Qt.rgba(1,1,1,0.04) : "transparent"
+
+                                    MouseArea { id: templateItemMA; anchors.fill: parent; hoverEnabled: true }
+
+                                    RowLayout {
+                                        anchors.fill: parent; anchors.leftMargin: 16; anchors.rightMargin: 16; spacing: 12
+
+                                        // 模板名称
+                                        Text {
+                                            text: model.name || ""
+                                            color: "#CBD5E1"; font.pointSize: 11; font.bold: true
+                                            elide: Text.ElideRight
+                                            Layout.preferredWidth: 200
+                                            ToolTip {
+                                                visible: templateNameMA.containsMouse && (model.name || "").length > 25
+                                                text: model.filePath || ""
+                                                delay: 500
+                                            }
+                                            MouseArea { id: templateNameMA; anchors.fill: parent; hoverEnabled: true }
+                                        }
+
+                                        // 导入时间
+                                        Text {
+                                            text: {
+                                                var t = model.importedAt || ""
+                                                if (t.length > 10) return t.substring(5, 16).replace("T", " ")
+                                                return t
+                                            }
+                                            color: "#94A3B8"; font.pointSize: 10
+                                            Layout.preferredWidth: 150
+                                        }
+
+                                        // 字段数量
+                                        Rectangle {
+                                            width: 50; height: 24; radius: 6
+                                            color: Qt.rgba(37/255, 99/255, 235/255, 0.15)
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: model.fieldCount || 0
+                                                color: "#60A5FA"; font.pointSize: 10; font.bold: true
+                                            }
+                                        }
+
+                                        // 操作按钮
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 6
+
+                                            // 应用模板
+                                            Rectangle {
+                                                width: 70; height: 28; radius: 6
+                                                color: applyTemplateMA.containsMouse ? "#1E3A5F" : "transparent"
+                                                border.color: "#60A5FA"; border.width: 1
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: "应用"
+                                                    color: "#60A5FA"; font.pointSize: 10
+                                                }
+                                                MouseArea {
+                                                    id: applyTemplateMA
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: {
+                                                        confirmDialog.templatePath = model.filePath
+                                                        confirmDialog.templateName = model.name
+                                                        confirmDialog.open()
+                                                    }
+                                                }
+                                            }
+
+                                            // 删除模板
+                                            Rectangle {
+                                                width: 50; height: 28; radius: 6
+                                                color: deleteTemplateMA.containsMouse ? "#3A1F1F" : "transparent"
+                                                border.color: "#EF4444"; border.width: 1
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: "删除"
+                                                    color: "#EF4444"; font.pointSize: 10
+                                                }
+                                                MouseArea {
+                                                    id: deleteTemplateMA
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: {
+                                                        if (DB && typeof DB.deleteTemplate === 'function') {
+                                                            DB.deleteTemplate(model.filePath)
+                                                            loadTemplates()
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
@@ -2725,24 +2915,6 @@ Item {
         }
     }
 
-    function loadSearchHistory() {
-        historyModel.clear()
-        hotSearchModel.clear()
-        var history = searchVM.getSearchHistory(50)
-        for (var i = 0; i < history.length; i++) {
-            var h = history[i]
-            historyModel.append({
-                query: h.query,
-                intent: h.intent === "search_key" ? "🔑 配置项" : h.intent === "search_value" ? "📊 参数值" : "📝 中文",
-                time: h.timestamp ? new Date(h.timestamp).toLocaleTimeString() : ""
-            })
-        }
-        var hot = searchVM.getHotSearches(20)
-        for (var j = 0; j < hot.length; j++) {
-            hotSearchModel.append({ query: hot[j].query, frequency: hot[j].frequency })
-        }
-    }
-
     // ===== 锁定/解锁密码对话框 =====
     Rectangle {
         id: lockOverlay
@@ -3034,6 +3206,486 @@ Item {
                     }
                 }
             }
+        }
+    }
+
+    // ===== 导入模板对话框 =====
+    Rectangle {
+        id: importTemplateOverlay
+        anchors.fill: parent
+        color: "#000000AA"
+        visible: importTemplateDialog.visible
+        z: 2000
+        MouseArea { anchors.fill: parent; onClicked: importTemplateDialog.close() }
+
+        Rectangle {
+            id: importTemplateDialog
+            width: 450
+            height: importContent.implicitHeight + 40
+            anchors.centerIn: parent
+            radius: 16
+            color: cardColor
+            border.color: primaryColor
+            border.width: 2
+            visible: false
+
+            property string selectedPath: ""
+
+            function open() {
+                selectedPath = ""
+                templatePathLabel.text = "未选择文件"
+                importProgress.visible = false
+                visible = true
+                importOverlay.visible = true
+            }
+
+            function close() {
+                visible = false
+                importOverlay.visible = false
+            }
+
+            function importTemplate() {
+                if (!selectedPath || selectedPath.length === 0) {
+                    importError.text = "请先选择模板文件"
+                    importError.visible = true
+                    return
+                }
+
+                importProgress.visible = true
+                importProgress.value = 0
+                importError.visible = false
+
+                // 使用 QtConcurrent 在后台导入
+                var targetPath = settingsFilePath || ""
+                if (DB && typeof DB.importTemplate === 'function') {
+                    var ok = DB.importTemplate(selectedPath, targetPath)
+                    importProgress.value = 100
+                    if (ok) {
+                        importSuccess.visible = true
+                        setTimeout(loadTemplates, 500)
+                        setTimeout(close, 1500)
+                    } else {
+                        importError.text = "导入失败，请检查文件格式"
+                        importError.visible = true
+                        importProgress.visible = false
+                    }
+                }
+            }
+
+            ColumnLayout {
+                id: importContent
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 24
+                spacing: 16
+
+                // 标题
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 12
+
+                    Rectangle {
+                        width: 40; height: 40; radius: 10
+                        color: primaryColor
+                        Text {
+                            anchors.centerIn: parent
+                            text: "📁"
+                            font.pointSize: 18
+                        }
+                    }
+
+                    ColumnLayout {
+                        spacing: 4
+                        Text {
+                            text: "导入配置模板"
+                            color: textPrimary
+                            font.pointSize: 15
+                            font.bold: true
+                        }
+                        Text {
+                            text: "选择配置文件作为模板，自动锁定字段"
+                            color: textMuted
+                            font.pointSize: 10
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Rectangle {
+                        width: 32; height: 32; radius: 16
+                        color: closeImportMA.containsMouse ? "#374151" : "transparent"
+                        Text { text: "✕"; anchors.centerIn: parent; color: "#94A3B8"; font.pointSize: 12 }
+                        MouseArea {
+                            id: closeImportMA; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onClicked: importTemplateDialog.close()
+                        }
+                    }
+                }
+
+                // 文件选择
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+
+                    Text {
+                        text: "选择模板文件"
+                        color: textSecondary
+                        font.pointSize: 11
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 40
+                            radius: 8
+                            color: "#111318"
+                            border.color: borderColor
+                            border.width: 1
+                            Text {
+                                id: templatePathLabel
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.bottom: parent.bottom
+                                anchors.margins: 12
+                                text: "未选择文件"
+                                color: textMuted
+                                font.pointSize: 11
+                                elide: Text.ElideMiddle
+                            }
+                        }
+
+                        Rectangle {
+                            width: 80; height: 40; radius: 8
+                            color: selectFileMA.containsMouse ? "#1E293B" : surfaceColor
+                            border.color: primaryColor
+                            border.width: 1
+                            Text {
+                                anchors.centerIn: parent
+                                text: "选择文件"
+                                color: primaryLight
+                                font.pointSize: 11
+                                font.bold: true
+                            }
+                            MouseArea {
+                                id: selectFileMA
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    var file = searchVM.pickConfigFile()
+                                    if (file && file.length > 0) {
+                                        importTemplateDialog.selectedPath = file
+                                        templatePathLabel.text = file
+                                        templatePathLabel.color = textPrimary
+                                        importError.visible = false
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 进度条
+                ProgressBar {
+                    id: importProgress
+                    Layout.fillWidth: true
+                    height: 6
+                    visible: false
+                    background: Rectangle {
+                        color: "#1E293B"
+                        radius: 3
+                    }
+                    contentItem: Rectangle {
+                        implicitWidth: 200
+                        implicitHeight: 6
+                        radius: 3
+                        color: primaryColor
+                    }
+                }
+
+                // 成功提示
+                Text {
+                    id: importSuccess
+                    text: "✅ 导入成功！"
+                    color: "#10B981"
+                    font.pointSize: 11
+                    font.bold: true
+                    visible: false
+                    Layout.alignment: Qt.AlignHCenter
+                }
+
+                // 错误提示
+                Text {
+                    id: importError
+                    text: ""
+                    color: "#EF4444"
+                    font.pointSize: 10
+                    visible: false
+                }
+
+                // 提示
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 36
+                    radius: 8
+                    color: Qt.rgba(37/255, 99/255, 235/255, 0.1)
+                    border.color: Qt.rgba(37/255, 99/255, 235/255, 0.2)
+                    border.width: 1
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 8
+                        spacing: 6
+
+                        Text { text: "💡"; font.pointSize: 12 }
+                        Text {
+                            text: "导入的配置文件中的所有字段将被自动锁定"
+                            color: textMuted
+                            font.pointSize: 10
+                            Layout.fillWidth: true
+                        }
+                    }
+                }
+
+                // 按钮
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.topMargin: 8
+                    spacing: 10
+
+                    Button {
+                        text: "取消"
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 40
+                        onClicked: importTemplateDialog.close()
+                        background: Rectangle { radius: 10; color: surfaceColor; border.color: borderColor; border.width: 1 }
+                        contentItem: Text { text: parent.text; color: textSecondary; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pointSize: 12 }
+                    }
+
+                    Button {
+                        text: "导入"
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 40
+                        onClicked: importTemplateDialog.importTemplate()
+                        background: Rectangle { radius: 10; color: primaryColor }
+                        contentItem: Text { text: parent.text; color: "#FFFFFF"; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pointSize: 12; font.bold: true }
+                    }
+                }
+            }
+        }
+    }
+
+    // ===== 应用模板确认对话框 =====
+    Rectangle {
+        id: confirmOverlay
+        anchors.fill: parent
+        color: "#000000AA"
+        visible: confirmDialog.visible
+        z: 2000
+        MouseArea { anchors.fill: parent; onClicked: confirmDialog.close() }
+
+        Rectangle {
+            id: confirmDialog
+            width: 400
+            height: confirmContent.implicitHeight + 40
+            anchors.centerIn: parent
+            radius: 16
+            color: cardColor
+            border.color: warningColor
+            border.width: 2
+            visible: false
+
+            property string templatePath: ""
+            property string templateName: ""
+
+            function open() {
+                visible = true
+                confirmOverlay.visible = true
+            }
+
+            function close() {
+                visible = false
+                confirmOverlay.visible = false
+            }
+
+            function apply() {
+                if (DB && typeof DB.applyTemplate === 'function') {
+                    DB.applyTemplate(templatePath)
+                    loadTemplates()
+                    close()
+                }
+            }
+
+            ColumnLayout {
+                id: confirmContent
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 24
+                spacing: 16
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 12
+
+                    Rectangle {
+                        width: 40; height: 40; radius: 10
+                        color: Qt.rgba(245/255, 158/255, 11/255, 0.15)
+                        border.color: warningColor
+                        border.width: 1
+                        Text {
+                            anchors.centerIn: parent
+                            text: "⚠️"
+                            font.pointSize: 18
+                        }
+                    }
+
+                    ColumnLayout {
+                        spacing: 4
+                        Text {
+                            text: "应用模板"
+                            color: textPrimary
+                            font.pointSize: 15
+                            font.bold: true
+                        }
+                        Text {
+                            text: "将模板应用到所有配置文件"
+                            color: textMuted
+                            font.pointSize: 10
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Rectangle {
+                        width: 32; height: 32; radius: 16
+                        color: closeConfirmMA.containsMouse ? "#374151" : "transparent"
+                        Text { text: "✕"; anchors.centerIn: parent; color: "#94A3B8"; font.pointSize: 12 }
+                        MouseArea {
+                            id: closeConfirmMA; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                            onClicked: confirmDialog.close()
+                        }
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 50
+                    radius: 8
+                    color: "#0F1117"
+                    border.color: Qt.rgba(1,1,1,0.08)
+                    Text {
+                        anchors.fill: parent
+                        anchors.margins: 12
+                        text: confirmDialog.templateName || ""
+                        color: primaryLight
+                        font.pointSize: 11
+                        font.family: "monospace"
+                        wrapMode: Text.WrapAnywhere
+                    }
+                }
+
+                Text {
+                    text: "此操作将把所有配置文件中的模板字段设置为只读状态，确定继续？"
+                    color: textSecondary
+                    font.pointSize: 11
+                    wrapMode: Text.WrapAnywhere
+                    Layout.fillWidth: true
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.topMargin: 8
+                    spacing: 10
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 40
+                        radius: 10
+                        color: cancelConfirmMA.containsMouse ? "#334155" : surfaceColor
+                        border.color: borderColor
+                        border.width: 1
+                        Text {
+                            anchors.centerIn: parent
+                            text: "取消"
+                            color: textSecondary
+                            font.pointSize: 12
+                        }
+                        MouseArea {
+                            id: cancelConfirmMA
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: confirmDialog.close()
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 40
+                        radius: 10
+                        color: applyConfirmMA.containsMouse ? "#F59E0B" : warningColor
+                        Text {
+                            anchors.centerIn: parent
+                            text: "确定应用"
+                            color: "#FFFFFF"
+                            font.pointSize: 12
+                            font.bold: true
+                        }
+                        MouseArea {
+                            id: applyConfirmMA
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: confirmDialog.apply()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    function loadTemplates() {
+        templateModel.clear()
+        if (DB && typeof DB.getTemplateFiles === 'function') {
+            var templates = DB.getTemplateFiles()
+            for (var i = 0; i < templates.length; i++) {
+                var t = templates[i]
+                // 获取字段数量
+                var fieldCount = 0
+                if (DB && typeof DB.getTemplateFieldCount === 'function') {
+                    fieldCount = DB.getTemplateFieldCount(t.filePath)
+                }
+                templateModel.append({
+                    filePath: t.filePath || "",
+                    name: t.name || t.filePath.split('/').pop() || "",
+                    importedAt: t.importedAt || "",
+                    fieldCount: fieldCount
+                })
+            }
+        }
+    }
+
+    function loadSearchHistory() {
+        historyModel.clear()
+        hotSearchModel.clear()
+        var history = searchVM.getSearchHistory(50)
+        for (var i = 0; i < history.length; i++) {
+            var h = history[i]
+            historyModel.append({
+                query: h.query,
+                intent: h.intent === "search_key" ? "🔑 配置项" : h.intent === "search_value" ? "📊 参数值" : "📝 中文",
+                time: h.timestamp ? new Date(h.timestamp).toLocaleTimeString() : ""
+            })
+        }
+        var hot = searchVM.getHotSearches(20)
+        for (var j = 0; j < hot.length; j++) {
+            hotSearchModel.append({ query: hot[j].query, frequency: hot[j].frequency })
         }
     }
 }
