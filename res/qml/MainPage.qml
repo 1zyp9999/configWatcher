@@ -2567,7 +2567,11 @@ Item {
                         Item { Layout.fillWidth: true }
                         Button {
                             text: "清空历史"; height: 32; Layout.preferredWidth: 80
-                            onClicked: { searchVM.clearSearchHistory(); historyModel.clear(); hotSearchModel.clear() }
+                            onClicked: {
+                                lockDialog.itemType = "historyAll"
+                                lockDialog.isImportMode = false
+                                lockDialog.open()
+                            }
                             background: Rectangle { color: "#3f1a1a"; radius: 8; border.color: dangerColor; border.width: 1 }
                             contentItem: Text { text: parent.text; color: dangerColor; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pointSize: 11 }
                         }
@@ -2834,6 +2838,9 @@ Item {
             property int currentIndex: -1
             property string templateFile: ""
             property bool isImportMode: false
+            property string itemType: ""
+            property string itemKey: ""
+            property int itemIndex: -1
 
             function open() {
                 passwordField.text = ""
@@ -2850,6 +2857,9 @@ Item {
                 currentIndex = -1
                 templateFile = ""
                 isImportMode = false
+                itemType = ""
+                itemKey = ""
+                itemIndex = -1
             }
 
             function confirm() {
@@ -2888,6 +2898,13 @@ Item {
                             searchVM.deleteSearchHistory(itemKey)
                         }
                         historyModel.remove(itemIndex)
+                    } else if (itemType === "historyAll") {
+                        // 清空全部搜索历史
+                        if (searchVM.clearSearchHistory) {
+                            searchVM.clearSearchHistory()
+                        }
+                        historyModel.clear()
+                        hotSearchModel.clear()
                     } else if (itemType === "log") {
                         // 删除单条修改记录
                         var parts = itemKey.split("|")
@@ -2949,6 +2966,7 @@ Item {
                                 else if (lockDialog.itemType === "lock") return "操作需要验证密码"
                                 else if (lockDialog.itemType === "dict") return "此自定义词条"
                                 else if (lockDialog.itemType === "history") return "此搜索记录"
+                                else if (lockDialog.itemType === "historyAll") return "全部搜索记录"
                                 else if (lockDialog.itemType === "log") return "此修改记录"
                                 else if (lockDialog.itemType === "logAll") return "全部修改记录"
                                 return ""
