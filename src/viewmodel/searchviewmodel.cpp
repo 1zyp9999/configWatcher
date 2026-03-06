@@ -97,10 +97,14 @@ void SearchViewModel::updateSearchResults()
     }
     m_searchResults.clear();
 
+    qDebug() << "[DEBUG] updateSearchResults called, searchText=" << m_searchText << ", formatFilter=" << m_formatFilter;
+
     // Prefer database-backed search if DB is initialized
     DatabaseManager* db = DatabaseManager::instance();
     if (db) {
+        qDebug() << "[DEBUG] Using database search";
         QVariantList list = db->searchParameters(m_searchText, 0, m_formatFilter);
+        qDebug() << "[DEBUG] Database search returned" << list.size() << "results";
         QList<QObject*> objResults;
         for (const QVariant& item : list) {
             // If DatabaseManager already returned QObject wrapped in QVariant, use it
@@ -126,6 +130,7 @@ void SearchViewModel::updateSearchResults()
         return;
     }
 
+    qDebug() << "[DEBUG] Database instance not available, falling back to parser";
     // Fallback to in-memory parser search
     QList<ConfigEntry*> results = m_parser->search(m_searchText);
     QList<QObject*> objResults;

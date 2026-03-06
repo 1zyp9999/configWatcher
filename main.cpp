@@ -81,13 +81,15 @@ int main(int argc, char *argv[])
 
     DatabaseManager *db = new DatabaseManager(&app);
     QString dbPath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + "/Leichen/configwatcher.db";
+    qDebug() << "[DEBUG] main: Opening database at" << dbPath;
     if (db->openDatabase(dbPath)) {
+        qDebug() << "[DEBUG] main: Database opened successfully, exposing to QML as 'DB'";
         engine.rootContext()->setContextProperty("DB", db);
         QString baseDir = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + "/Leichen";
         QtConcurrent::run([dbPath, baseDir]() {
             // Use a separate DB connection for the background thread
             DatabaseManager bgDb;
-            if (!bgDb.openDatabase(dbPath, QStringLiteral("bg_import"))) {
+            if (!bgDb.openDatabase(dbPath, QStringLiteral("bg_import"), false /* don't set as global instance */)) {
                 qWarning() << "Failed to open background DB connection";
                 return;
             }

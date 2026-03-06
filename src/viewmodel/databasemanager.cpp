@@ -25,7 +25,7 @@ DatabaseManager::~DatabaseManager()
     closeDatabase();
 }
 
-bool DatabaseManager::openDatabase(const QString& path, const QString& connectionName)
+bool DatabaseManager::openDatabase(const QString& path, const QString& connectionName, bool setAsGlobalInstance)
 {
     // Ensure directory exists (path is file path)
     QFileInfo fi(path);
@@ -145,7 +145,12 @@ bool DatabaseManager::openDatabase(const QString& path, const QString& connectio
     q.exec("CREATE INDEX IF NOT EXISTS idx_changelog_file ON change_log(file_path);");
     q.exec("CREATE INDEX IF NOT EXISTS idx_changelog_time ON change_log(changed_at DESC);");
 
-    s_instance = this;
+    if (setAsGlobalInstance) {
+        s_instance = this;
+        qDebug() << "[DEBUG] DatabaseManager::openDatabase succeeded, s_instance set to" << this << ", path:" << path;
+    } else {
+        qDebug() << "[DEBUG] DatabaseManager::openDatabase succeeded (background), path:" << path;
+    }
     return true;
 }
 
@@ -539,7 +544,13 @@ QVariantList DatabaseManager::searchParameters(const QString& query, int mode, c
 {
     Q_UNUSED(mode);
     QVariantList out;
-    if (!m_db.isOpen()) return out;
+    if (!m_db.isOpen()) {
+        qWarning() << "[DEBUG] searchParameters: database not open";
+        return out;
+    }
+    
+    qDebug() << "[DEBUG] searchParameters: query=" << query << ", formatFilter=" << formatFilter;
+    
     QSqlQuery q(m_db);
 
     // 构建格式过滤条件
@@ -653,6 +664,9 @@ QVariantList DatabaseManager::listFiles()
 
 DatabaseManager* DatabaseManager::instance()
 {
+    if (!s_instance) {
+        qDebug() << "[DEBUG] DatabaseManager::instance() returns nullptr";
+    }
     return s_instance;
 }
 

@@ -548,9 +548,12 @@ Item {
                             height: 38
                             Layout.preferredWidth: 72
                             onClicked: {
+                                console.log("[DEBUG] 搜索按钮被点击，searchText=", searchField.text)
+                                console.log("[DEBUG] DB exists:", (typeof DB !== 'undefined'))
                                 searchVM.searchText = searchField.text
                                 if (searchVM.aiEnabled) searchVM.analyzeSearchQuery(searchField.text)
                                 searchVM.updateSearchResults()
+                                console.log("[DEBUG] 搜索结果数量:", searchVM.searchResults ? searchVM.searchResults.length : 0)
                                 // 记录搜索历史
                                 if (searchVM.learningEnabled && searchField.text.trim() !== "") {
                                     searchVM.recordSearch(searchField.text, searchVM.searchResults ? searchVM.searchResults.length : 0, false)
@@ -600,7 +603,10 @@ Item {
                             height: 38
                             Layout.preferredWidth: 72
                             onClicked: {
+                                console.log("[DEBUG] 联想按钮被点击，searchText=", searchField.text)
+                                console.log("[DEBUG] DB exists:", (typeof DB !== 'undefined'))
                                 searchVM.buildKeyIndex()
+                                console.log("[DEBUG] keyIndex 已构建，开始请求 suggestClusters")
                                 searchVM.requestSuggestClusters(searchField.text, 8, 6)
                                 mainPage.suggestionsVisible = true
                                 suggestModel.clear()

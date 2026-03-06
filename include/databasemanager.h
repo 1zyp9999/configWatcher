@@ -13,7 +13,7 @@ public:
     explicit DatabaseManager(QObject* parent = nullptr);
     ~DatabaseManager();
 
-    bool openDatabase(const QString& path, const QString& connectionName = QString());
+    bool openDatabase(const QString& path, const QString& connectionName = QString(), bool setAsGlobalInstance = true);
     void closeDatabase();
 
     bool saveConfigEntry(const QString& key, const QString& value, const QString& filePath, const QString& format, const QString& chineseKey);
