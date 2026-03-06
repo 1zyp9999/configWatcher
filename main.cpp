@@ -84,14 +84,21 @@ int main(int argc, char *argv[])
     if (db->openDatabase(dbPath)) {
         engine.rootContext()->setContextProperty("DB", db);
         QString baseDir = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + "/Leichen";
-        QtConcurrent::run([db, baseDir]() {
+        QtConcurrent::run([dbPath, baseDir]() {
+            // Use a separate DB connection for the background thread
+            DatabaseManager bgDb;
+            if (!bgDb.openDatabase(dbPath, QStringLiteral("bg_import"))) {
+                qWarning() << "Failed to open background DB connection";
+                return;
+            }
             QDirIterator it(baseDir, QStringList() << "*.ini" << "*.json" << "*.xml", QDir::Files, QDirIterator::Subdirectories);
             while (it.hasNext()) {
                 const QString f = it.next();
-                if (f.endsWith(".ini", Qt::CaseInsensitive)) db->importIniFile(f);
-                else if (f.endsWith(".json", Qt::CaseInsensitive)) db->importJsonFile(f);
-                else if (f.endsWith(".xml", Qt::CaseInsensitive)) db->importXmlFile(f);
+                if (f.endsWith(".ini", Qt::CaseInsensitive)) bgDb.importIniFile(f);
+                else if (f.endsWith(".json", Qt::CaseInsensitive)) bgDb.importJsonFile(f);
+                else if (f.endsWith(".xml", Qt::CaseInsensitive)) bgDb.importXmlFile(f);
             }
+            bgDb.closeDatabase();
         });
     }
 

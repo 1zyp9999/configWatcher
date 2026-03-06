@@ -34,7 +34,9 @@ bool LoginViewModel::checkLogin()
     m_errorMessage = "";
     emit errorMessageChanged();
 
-    // 登录校验（账号：admin，密码：aoi2024）
+    // WARNING: DEMO-ONLY hardcoded credentials for hackathon demonstration.
+    // 警告：以下为黑客松演示用途的硬编码凭证，不可用于生产环境。
+    // TODO: Replace with proper authentication (e.g. LDAP/OAuth) before any deployment.
     if (m_username == "admin" && m_password == "aoi2024") {
         emit loginSuccess();
 

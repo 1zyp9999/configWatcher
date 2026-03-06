@@ -25,15 +25,18 @@ DatabaseManager::~DatabaseManager()
     closeDatabase();
 }
 
-bool DatabaseManager::openDatabase(const QString& path)
+bool DatabaseManager::openDatabase(const QString& path, const QString& connectionName)
 {
     // Ensure directory exists (path is file path)
     QFileInfo fi(path);
     QDir dir = fi.absoluteDir();
     if (!dir.exists()) dir.mkpath(".");
 
-    // Use default connection for now; main creates single instance to avoid duplicates
-    m_db = QSqlDatabase::addDatabase("QSQLITE");
+    // Use named connection if provided, otherwise default connection
+    m_connectionName = connectionName.isEmpty()
+        ? QLatin1String(QSqlDatabase::defaultConnection)
+        : connectionName;
+    m_db = QSqlDatabase::addDatabase("QSQLITE", m_connectionName);
     m_db.setDatabaseName(path);
     if (!m_db.open()) {
         qWarning() << "Failed to open database:" << m_db.lastError().text();
@@ -150,6 +153,13 @@ void DatabaseManager::closeDatabase()
 {
     if (m_db.isOpen()) m_db.close();
     if (s_instance == this) s_instance = nullptr;
+    // Remove named connection to avoid Qt warning about dangling connections
+    if (!m_connectionName.isEmpty()) {
+        QString connName = m_connectionName;
+        m_db = QSqlDatabase(); // Release handle before removing
+        QSqlDatabase::removeDatabase(connName);
+        m_connectionName.clear();
+    }
 }
 
 int DatabaseManager::ensureFile(const QString& path, const QString& format)
@@ -245,7 +255,7 @@ bool DatabaseManager::importIniFile(const QString& filePath, const QString& devi
     if (!tx.exec("BEGIN")) { qWarning() << "Failed to begin transaction:" << tx.lastError().text(); }
 
     int fileId = ensureFile(filePath, QStringLiteral("ini"));
-    if (fileId < 0) { f.close(); return false; }
+    if (fileId < 0) { tx.exec("ROLLBACK"); f.close(); return false; }
 
     while (!in.atEnd()) {
         QString line = in.readLine().trimmed();
@@ -328,7 +338,7 @@ bool DatabaseManager::importJsonFile(const QString& filePath, const QString& dev
     tx.exec("BEGIN");
 
     int fileId = ensureFile(filePath, QStringLiteral("json"));
-    if (fileId < 0) return false;
+    if (fileId < 0) { tx.exec("ROLLBACK"); return false; }
 
     // 递归辅助 lambda：将 JSON 对象展平写入 DB
     std::function<void(const QJsonObject&, const QString&, const QString&)> importObj;
@@ -396,10 +406,11 @@ bool DatabaseManager::importXmlFile(const QString& filePath, const QString& devi
     tx.exec("BEGIN");
 
     int fileId = ensureFile(filePath, QStringLiteral("xml"));
-    if (fileId < 0) { f.close(); return false; }
+    if (fileId < 0) { tx.exec("ROLLBACK"); f.close(); return false; }
 
     QXmlStreamReader xml(&f);
     QStringList sectionStack;
+    QString currentText;
     int defaultSectionId = ensureSection(fileId, QStringLiteral("__root__"), -1);
 
     while (!xml.atEnd() && !xml.hasError()) {
@@ -407,6 +418,7 @@ bool DatabaseManager::importXmlFile(const QString& filePath, const QString& devi
         if (token == QXmlStreamReader::StartElement) {
             QString elemName = xml.name().toString();
             sectionStack.append(elemName);
+            currentText.clear();
 
             // 将元素的属性作为参数导入
             QXmlStreamAttributes attrs = xml.attributes();
@@ -420,15 +432,16 @@ bool DatabaseManager::importXmlFile(const QString& filePath, const QString& devi
                     upsertParameter(fileId, sectionId, key, val, "string", 0, 0, device, key, QString());
                 }
             }
-
-            // 如果元素只包含文本内容，也作为参数导入
-            QString text = xml.readElementText(QXmlStreamReader::SkipChildElements).trimmed();
-            if (!text.isEmpty()) {
+        } else if (token == QXmlStreamReader::Characters) {
+            currentText += xml.text().toString();
+        } else if (token == QXmlStreamReader::EndElement) {
+            QString text = currentText.trimmed();
+            if (!text.isEmpty() && !sectionStack.isEmpty()) {
+                QString elemName = sectionStack.last();
                 QString sectionName;
                 // 用父元素路径作为 section
                 if (sectionStack.size() > 1) {
-                    QStringList parentPath = sectionStack;
-                    parentPath.removeLast();
+                    QStringList parentPath = sectionStack.mid(0, sectionStack.size() - 1);
                     sectionName = parentPath.join(".");
                 } else {
                     sectionName = "__root__";
@@ -448,7 +461,7 @@ bool DatabaseManager::importXmlFile(const QString& filePath, const QString& devi
                 }
                 upsertParameter(fileId, sectionId, elemName, text, vtype, n1, 0, device, elemName, QString());
             }
-        } else if (token == QXmlStreamReader::EndElement) {
+            currentText.clear();
             if (!sectionStack.isEmpty()) sectionStack.removeLast();
         }
     }
@@ -577,8 +590,13 @@ QVariantList DatabaseManager::searchParameters(const QString& query, int mode, c
     }
 
     // LIKE 模糊匹配回退逻辑
-    QString like = QString("%") + query + "%";
-    QString sql = "SELECT p.key, p.raw_value, p.chinese_name, p.device, f.path, f.format FROM parameters p JOIN files f ON p.file_id=f.id WHERE (p.key LIKE :l OR p.raw_value LIKE :l OR p.chinese_name LIKE :l OR p.device LIKE :l)" + formatCondition + " LIMIT 500";
+    // Escape LIKE wildcards in user input
+    QString escaped = query;
+    escaped.replace(QLatin1String("\\"), QLatin1String("\\\\"));
+    escaped.replace(QLatin1String("%"), QLatin1String("\\%"));
+    escaped.replace(QLatin1String("_"), QLatin1String("\\_"));
+    QString like = QString("%") + escaped + "%";
+    QString sql = "SELECT p.key, p.raw_value, p.chinese_name, p.device, f.path, f.format FROM parameters p JOIN files f ON p.file_id=f.id WHERE (p.key LIKE :l ESCAPE '\\' OR p.raw_value LIKE :l ESCAPE '\\' OR p.chinese_name LIKE :l ESCAPE '\\' OR p.device LIKE :l ESCAPE '\\')" + formatCondition + " LIMIT 500";
     q.prepare(sql);
     q.bindValue(":l", like);
     if (hasFormatFilter) q.bindValue(":fmt", formatFilter.toLower());

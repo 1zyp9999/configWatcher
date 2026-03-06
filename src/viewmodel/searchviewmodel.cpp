@@ -89,6 +89,14 @@ void SearchViewModel::openConfigFile(const QString& filePath)
 
 void SearchViewModel::updateSearchResults()
 {
+    // Clean up old ConfigEntry objects owned by this ViewModel
+    for (QObject* obj : m_searchResults) {
+        if (obj && obj->parent() == this) {
+            delete obj;
+        }
+    }
+    m_searchResults.clear();
+
     // Prefer database-backed search if DB is initialized
     DatabaseManager* db = DatabaseManager::instance();
     if (db) {
@@ -556,11 +564,13 @@ QVariantList SearchViewModel::readConfigFile(const QString &filePath)
     } else if (suffix == "xml") {
         QXmlStreamReader xml(&f);
         QStringList sectionStack;
+        QString currentText;
         while (!xml.atEnd() && !xml.hasError()) {
             QXmlStreamReader::TokenType token = xml.readNext();
             if (token == QXmlStreamReader::StartElement) {
                 QString elemName = xml.name().toString();
                 sectionStack.append(elemName);
+                currentText.clear();
 
                 // 属性作为键值对
                 QXmlStreamAttributes attrs = xml.attributes();
@@ -571,19 +581,18 @@ QVariantList SearchViewModel::readConfigFile(const QString &filePath)
                     m["value"] = attr.value().toString();
                     out.append(m);
                 }
-
-                // 文本内容
-                QString text = xml.readElementText(QXmlStreamReader::SkipChildElements).trimmed();
+            } else if (token == QXmlStreamReader::Characters) {
+                currentText += xml.text().toString();
+            } else if (token == QXmlStreamReader::EndElement) {
+                QString text = currentText.trimmed();
                 if (!text.isEmpty()) {
                     QString key = sectionStack.join(".");
                     QVariantMap m;
                     m["key"] = key;
                     m["value"] = text;
                     out.append(m);
-                    // readElementText 已消费了 EndElement，需手动弹出
-                    if (!sectionStack.isEmpty()) sectionStack.removeLast();
                 }
-            } else if (token == QXmlStreamReader::EndElement) {
+                currentText.clear();
                 if (!sectionStack.isEmpty()) sectionStack.removeLast();
             }
         }
@@ -633,7 +642,7 @@ bool SearchViewModel::writeConfigFile(const QString &filePath, const QVariantLis
             QString val = m.value("value").toString();
             QString section = "";
             QString name = k;
-            int dot = k.indexOf('.');
+            int dot = k.lastIndexOf('.');
             if (dot > 0) { section = k.left(dot); name = k.mid(dot+1); }
             sections[section][name] = val;
         }
