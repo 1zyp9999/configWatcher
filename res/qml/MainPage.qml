@@ -242,39 +242,6 @@ Item {
                         }
                     }
 
-                    Rectangle {
-                        id: fileMenuBtnRect
-                        color: "transparent"
-                        radius: 8
-                        Layout.preferredWidth: fileMenuText.paintedWidth + 24
-                        Layout.preferredHeight: 36
-                        MouseArea {
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            onClicked: {
-                                if (DB && typeof DB.listFiles === 'function') {
-                                    var files = DB.listFiles()
-                                    fileModel.clear()
-                                    for (var i=0;i<files.length;i++) {
-                                        var p = files[i].path || ""
-                                        var name = p.split('/').pop() || p
-                                        name = name.replace(/\.[^/.]+$/, "")
-                                        fileModel.append({path: p, format: files[i].format, display: name})
-                                    }
-                                    if (fileModel.count>0) {
-                                        settingsFilePath = fileModel.get(0).path
-                                    }
-                                    mainPage.settingsVisible = true
-                                } else {
-                                    console.log('DB.listFiles not available; please rebuild the app')
-                                }
-                            }
-                            onEntered: fileMenuBtnRect.color = surfaceColor
-                            onExited: fileMenuBtnRect.color = "transparent"
-                        }
-                        Text { id: fileMenuText; text: qsTr("文件"); anchors.centerIn: parent; color: textSecondary; font.pointSize: 13 }
-                    }
-
                     Item { Layout.fillWidth: true }
 
                     // 精简模式按钮
