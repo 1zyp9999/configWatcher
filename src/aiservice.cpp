@@ -34,17 +34,17 @@ AiService::~AiService()
 void AiService::initSynonymDictionary()
 {
     // ===== 相机/光学核心参数 =====
-    m_synonyms["相机"] = QStringList{"camera", "摄相机", "工业相机", "面阵相机", "线阵相机", "cam"};
-    m_synonyms["camera"] = QStringList{"相机", "cam", "industrial camera", "area scan", "line scan"};
-    m_synonyms["曝光"] = QStringList{"exposure", "曝光时间", "积分时间", "integration", "exposure time", "shutter"};
+    m_synonyms["相机"] = QStringList{"camera", "摄相机", "工业相机", "面阵相机", "线阵相机", "cam", "cameralist", "cameratype", "cameraplugin", "cameraconfigname"};
+    m_synonyms["camera"] = QStringList{"相机", "cam", "industrial camera", "area scan", "line scan", "cameralist", "cameratype", "cameraplugin"};
+    m_synonyms["曝光"] = QStringList{"exposure", "曝光时间", "积分时间", "integration", "exposure time", "shutter", "exposuretime"};
     m_synonyms["增益"] = QStringList{"gain", "analog gain", "digital gain", "模拟增益", "数字增益", "db"};
-    m_synonyms["触发"] = QStringList{"trigger", "软触发", "硬触发", "外触发", "内触发", "strobe"};
+    m_synonyms["触发"] = QStringList{"trigger", "软触发", "硬触发", "外触发", "内触发", "strobe", "triggerwidth", "triggerboradorder"};
     m_synonyms["帧率"] = QStringList{"framerate", "fps", "frame rate", "帧频", "frames per second"};
-    m_synonyms["分辨率"] = QStringList{"resolution", "width", "height", "宽", "高", "像素", "megapixel"};
+    m_synonyms["分辨率"] = QStringList{"resolution", "width", "height", "宽", "高", "像素", "megapixel", "actualresolution", "actualobliqueresolution", "capturesize"};
     m_synonyms["白平衡"] = QStringList{"white balance", "wb", "色温", "color temperature", "gain red", "gain blue"};
     m_synonyms["伽马"] = QStringList{"gamma", "γ", "灰度", "tone mapping", "曲线"};
     m_synonyms["对比度"] = QStringList{"contrast", "反差", "dynamic range"};
-    m_synonyms["亮度"] = QStringList{"brightness", "luminance", "明暗", "black level", "offset"};
+    m_synonyms["亮度"] = QStringList{"brightness", "luminance", "明暗", "black level", "offset", "averagebrightness", "brightnessmax", "brightnessmin", "brightnessrange", "calbrightnessblue", "calbrightnessgreen", "calbrightnessred"};
     m_synonyms["饱和"] = QStringList{"saturation", "饱和度", "色彩饱和度", "color"};
     m_synonyms["锐度"] = QStringList{"sharpness", "清晰度", "锐化", "edge enhancement"};
     m_synonyms["镜头"] = QStringList{"lens", "焦距", "focus", "对焦", "focal length", "镜头焦距"};
@@ -56,49 +56,82 @@ void AiService::initSynonymDictionary()
     m_synonyms["格式"] = QStringList{"format", "pixel format", "像素格式", "输出格式", "color format", "mono", "bayer"};
     m_synonyms["压缩"] = QStringList{"compression", "jpeg", "h264", "编码", "encode", "quality", "mjpeg"};
     m_synonyms["传输"] = QStringList{"transfer", "usb", "gige", "cameralink", "协议", "interface", "genicam"};
-    
+
+    // ===== 光源/颜色（基于数据库实际数据扩展）=====
+    m_synonyms["光源"] = QStringList{"light", "照明", "补光灯", "lightsource", "illumination", "lighttype", "lightenablelist", "lightlevelhighlimit", "lightlevellowlimit"};
+    m_synonyms["红光"] = QStringList{"red light", "620nm", "红色光源", "upperbottomred", "uppertopred", "calbrightnessred"};
+    m_synonyms["绿光"] = QStringList{"green light", "530nm", "绿色光源", "upperbottomgreen", "uppermidgreen", "calbrightnessgreen"};
+    m_synonyms["蓝光"] = QStringList{"blue light", "470nm", "蓝色光源", "upperbottomblue", "calbrightnessblue"};
+    m_synonyms["白光"] = QStringList{"white light", "自然光", "diffuse", "漫射", "upperbottomwhite", "uppermidwhite", "uppertopwhite"};
+    m_synonyms["同轴光"] = QStringList{"coaxial", "同轴光", "coax"};
+    m_synonyms["背光"] = QStringList{"backlight", "背光源", "透射"};
+    m_synonyms["环形光"] = QStringList{"ring light", "环形光源", "round"};
+    m_synonyms["条形光"] = QStringList{"bar light", "条形光源", "line light"};
+    m_synonyms["点光源"] = QStringList{"spot light", "点光", "focused"};
+    m_synonyms["颜色"] = QStringList{"color", "colour", "red", "green", "blue", "white", "颜色", "色彩"};
+    m_synonyms["颜色通道"] = QStringList{"channel", "通道", "channelvalues", "channeldiffvalue", "triggerchannel"};
+    m_synonyms["投影亮度"] = QStringList{"projectionbrightness", "projection", "brightness"};
+    m_synonyms["均匀光度"] = QStringList{"uniformluminance", "luminance", "uniformluminancestandardvalue"};
+    m_synonyms["LSC 校正"] = QStringList{"lsc", "lscparam", "lsccorrectionresult", "lsccapturesetting"};
+
     // ===== 温度/散热 =====
     m_synonyms["温度"] = QStringList{"temperature", "temp", "传感器温度", "冷却", "摄氏度", "celsius"};
     m_synonyms["风扇"] = QStringList{"fan", "散热", "冷却风扇", "fan speed", "转速", "cooling"};
     m_synonyms["过热"] = QStringList{"overheat", "高温", "thermal", "温度保护"};
-    
-    // ===== 设备信息 =====
-    m_synonyms["固件"] = QStringList{"firmware", "版本", "version", "fw", "build"};
-    m_synonyms["序列号"] = QStringList{"serial number", "sn", "设备序列号", "id", "device id", "uuid"};
-    m_synonyms["型号"] = QStringList{"model", "产品型号", "product", "type"};
+
+    // ===== 设备信息（基于数据库实际数据扩展）=====
+    m_synonyms["设备"] = QStringList{"device", "equipment", "equip", "machine", "aoimachine", "deviceid", "devicename", "deviceserialnumber", "devicesn", "devicetype", "devno", "equipcode", "equipid", "equipmodel", "equipname", "equipmentid", "factory", "workstation"};
+    m_synonyms["设备型号"] = QStringList{"devmodel", "equipmodel", "model", "product", "type", "devicetype", "devicetype2"};
+    m_synonyms["设备编号"] = QStringList{"devno", "deviceno", "equipid", "deviceid", "deviceserialnumber", "devicesn", "equipcode"};
+    m_synonyms["固件"] = QStringList{"firmware", "版本", "version", "fw", "build", "appversion", "autotestversion"};
+    m_synonyms["序列号"] = QStringList{"serial number", "sn", "设备序列号", "id", "device id", "uuid", "barcode", "barcodinfid", "checkbarcode", "assignbarcode"};
+    m_synonyms["型号"] = QStringList{"model", "产品型号", "product", "type", "devmodel", "equipmodel"};
     m_synonyms["制造商"] = QStringList{"manufacturer", "vendor", "厂家", "brand"};
-    m_synonyms["状态"] = QStringList{"status", "state", "连接状态", "在线", "offline", "connected"};
-    m_synonyms["错误"] = QStringList{"error", "错误码", "故障", "exception", "alarm", "warning", "err"};
-    m_synonyms["日志"] = QStringList{"log", "日志级别", "debug", "trace", "info", "记录"};
-    
-    // ===== 标定/校准 =====
-    m_synonyms["校准"] = QStringList{"calibration", "标定", "校正", "矫正", "calib"};
+    m_synonyms["状态"] = QStringList{"status", "state", "连接状态", "在线", "offline", "connected", "focusstatus"};
+    m_synonyms["错误"] = QStringList{"error", "错误码", "故障", "exception", "alarm", "warning", "err", "errortype", "errortable", "boarddroperror"};
+    m_synonyms["日志"] = QStringList{"log", "日志级别", "debug", "trace", "info", "记录", "elapsedtime"};
+    m_synonyms["创建时间"] = QStringList{"createtime", "createprojecttime", "calibrationdate"};
+    m_synonyms["作者"] = QStringList{"author", "account", "user", "calibrationuser"};
+
+    // ===== 标定/校准（基于数据库实际数据扩展）=====
+    m_synonyms["校准"] = QStringList{"calibration", "标定", "校正", "矫正", "calib", "calibrationcalsetting", "calibrationdatas", "calibrationdate", "calibrationzaxis"};
     m_synonyms["畸变"] = QStringList{"distortion", "镜头畸变", "径向畸变", "切向畸变", "k1", "k2", "p1", "p2"};
     m_synonyms["内参"] = QStringList{"intrinsic", "内参数", "焦距", "主点", "fx", "fy", "cx", "cy"};
     m_synonyms["外参"] = QStringList{"extrinsic", "外参数", "旋转", "平移", "rotation", "translation", "pose"};
-    m_synonyms["标定板"] = QStringList{"calibration board", "棋盘格", "checkerboard", "dot pattern", "标定靶"};
+    m_synonyms["标定板"] = QStringList{"calibration board", "棋盘格", "checkerboard", "dot pattern", "标定靶", "targetinfo", "targetname", "targetposlist"};
     m_synonyms["重投影"] = QStringList{"reprojection", "重投影误差", "error", "rms"};
     m_synonyms["手眼"] = QStringList{"hand eye", "眼在手外", "eye to hand", "机器人标定"};
-    
+    m_synonyms["3D 标定"] = QStringList{"cal3d", "3dcalibration", "projectionbrightnesssetting", "projectioninspectionsetting", "projectionzscalesetting"};
+    m_synonyms["相机标定"] = QStringList{"calcamerasetting", "calcamerafocussetting", "camerazoriginsetting"};
+    m_synonyms["光源标定"] = QStringList{"callightsetting", "light2dsetting", "light2dstandard"};
+    m_synonyms["机械标定"] = QStringList{"calmechanismsetting", "mechanismcameraoriginsetting", "mechanismmotionoriginsetting"};
+    m_synonyms["验证"] = QStringList{"verification", "calverificationsetting", "cmksetting"};
+    m_synonyms["焦点"] = QStringList{"focus", "对焦", "diffocus", "standardfocus", "focusstatus"};
+    m_synonyms["Z 轴"] = QStringList{"zaxis", "z 轴", "zpos", "calibrationzaxis", "zstep", "zorigin"};
+
     // ===== 投影/结构光 =====
-    m_synonyms["投影"] = QStringList{"projector", "投影仪", "projection", "结构光", "sl", "pattern projection"};
+    m_synonyms["投影"] = QStringList{"projector", "投影仪", "projection", "结构光", "sl", "pattern projection", "projectiontype", "projectionbrightness", "projectioninspection", "projectionzscale"};
     m_synonyms["图案"] = QStringList{"pattern", "条纹", "fringe", "编码图案", "grating", "正弦条纹"};
     m_synonyms["相位"] = QStringList{"phase", "相移", "phase shift", "psp", "相位展开"};
     m_synonyms["解调"] = QStringList{"demodulation", "解包裹", "unwrapping", "phase unwrapping"};
     m_synonyms["强度"] = QStringList{"intensity", "亮度", "光强", "brightness", "power", "led intensity"};
     m_synonyms["波长"] = QStringList{"wavelength", "光谱", "spectrum", "nm", "红外", "紫外"};
     m_synonyms["曝光序列"] = QStringList{"exposure sequence", "多曝光", "hdr", "high dynamic range"};
-    
+    m_synonyms["周期参数"] = QStringList{"cyclesparameter", "cycle", "period"};
+    m_synonyms["均值范围"] = QStringList{"meanrange", "mean", "standarddeviationrange"};
+    m_synonyms["高度标定"] = QStringList{"heightcalib", "heightcalibstandardmean", "heightcalibstandardstd"};
+
     // ===== 3D/点云 =====
     m_synonyms["点云"] = QStringList{"point cloud", "3d 点云", "深度图", "depth map", "pcl"};
     m_synonyms["深度"] = QStringList{"depth", "距离", "z 值", "distance", "depth map", "z buffer"};
     m_synonyms["三维"] = QStringList{"3d", "三维重建", "stereo", "binocular", "双目"};
-    m_synonyms["坐标"] = QStringList{"coordinate", "coords", "x", "y", "z", "坐标系", "world", "camera"};
+    m_synonyms["坐标"] = QStringList{"coordinate", "coords", "x", "y", "z", "坐标系", "world", "camera", "posx", "posy", "position"};
     m_synonyms["变换"] = QStringList{"transform", "矩阵", "homography", "单应性", "matrix", "4x4"};
     m_synonyms["映射"] = QStringList{"mapping", "查找表", "lut", "lookup table", "remap", "校正映射"};
     m_synonyms["配准"] = QStringList{"registration", "对齐", "align", "icp", "点云配准"};
     m_synonyms["滤波"] = QStringList{"filter", "平滑", "去噪", "中值滤波", "高斯滤波", "pass through", "voxel"};
-    
+    m_synonyms["倾斜分辨率"] = QStringList{"obliqueresolution", "actualobliqueresolution"};
+
     // ===== 图像处理 =====
     m_synonyms["阈值"] = QStringList{"threshold", "二值化", "分割", "binarize", "otsu", "自适应阈值"};
     m_synonyms["边缘"] = QStringList{"edge", "轮廓", "contour", "边界", "canny", "sobel", "laplacian"};
@@ -107,16 +140,103 @@ void AiService::initSynonymDictionary()
     m_synonyms["分割"] = QStringList{"segmentation", "分割", "region", "watershed", "聚类"};
     m_synonyms["形态学"] = QStringList{"morphology", "膨胀", "腐蚀", "open", "close", "dilate", "erode"};
     m_synonyms["模板"] = QStringList{"template", "模板匹配", "match template", "pattern match"};
-    
-    // ===== 同步/通信 =====
-    m_synonyms["同步"] = QStringList{"synchronization", "sync", "硬同步", "软同步", "trigger sync", "ptp"};
-    m_synonyms["延时"] = QStringList{"delay", "latency", "延迟", "时延", "lag", "response time"};
-    m_synonyms["带宽"] = QStringList{"bandwidth", "吞吐量", "throughput", "mbps", "包大小"};
-    m_synonyms["缓存"] = QStringList{"buffer", "缓存区", "队列", "queue", "fifo", "ring buffer"};
-    m_synonyms["超时"] = QStringList{"timeout", "超时时间", "等待时间", "wait time"};
-    m_synonyms["重试"] = QStringList{"retry", "重连", "reconnect", "repeat", "attempts"};
-    m_synonyms["丢包"] = QStringList{"packet loss", "丢包率", "drop", "resend"};
-    
+    m_synonyms["相关性"] = QStringList{"correlation", "correlationlimit", "相关"};
+    m_synonyms["灰度"] = QStringList{"gray", "grey", "灰度", "grayhighlimit", "graylowlimit"};
+
+    // ===== 运动控制/机械（基于数据库实际数据扩展）=====
+    m_synonyms["运动"] = QStringList{"motion", "运动控制", "mechanismmotion", "motionorigin"};
+    m_synonyms["轴"] = QStringList{"axis", "轴", "axiscontroltype", "axistopyreverse", "bottomx", "bottomy", "bottomz"};
+    m_synonyms["速度"] = QStringList{"speed", "速度", "speedlevel", "conveyorcarryoutspeed", "bottomxyspeedrate", "accel", "decel"};
+    m_synonyms["加速度"] = QStringList{"acceleration", "accel", "加速", "bottomxaccelspeedrate", "bottomyaccelspeedrate", "bottomzaccelspeedrate", "xyaccelspeedrate"};
+    m_synonyms["减速度"] = QStringList{"deceleration", "decel", "减速", "bottomxdecelspeedrate", "bottomydecelspeedrate", "bottomzdecelspeedrate"};
+    m_synonyms["电机"] = QStringList{"motor", "步进电机", "伺服", "servo", "stepper", "驱动器"};
+    m_synonyms["传感器"] = QStringList{"sensor", "感应器", "探测器", "detector", "proximity"};
+    m_synonyms["编码器"] = QStringList{"encoder", "码盘", "位置反馈", "rotary", "linear"};
+    m_synonyms["原点"] = QStringList{"origin", "原点", "originoffset", "cameraorigin", "motionorigin", "zorigin"};
+    m_synonyms["偏移"] = QStringList{"offset", "偏移", "originoffsetx", "originoffsety", "originoffsetz", "originoffsetw"};
+    m_synonyms["平台"] = QStringList{"stage", "平台", "扫描平台", "scanstage"};
+    m_synonyms["扫描边"] = QStringList{"scanside", "scan", "扫描侧"};
+
+    // ===== 传送带/轨道（基于数据库实际数据扩展）=====
+    m_synonyms["传送带"] = QStringList{"conveyor", "传送带", "输送带", "conveyorcalsize", "conveyorcarryout", "conveyoruser", "conveyorwait"};
+    m_synonyms["轨道"] = QStringList{"lane", "轨道", "laneindex", "track", "supportreflowtrack"};
+    m_synonyms["进板"] = QStringList{"carryin", "进板", "carryindirection", "carryintimeout", "carrytoentry"};
+    m_synonyms["出板"] = QStringList{"carryout", "出板", "carryouttimeout", "conveyorcarryout"};
+    m_synonyms["夹板"] = QStringList{"clamp", "clamped", "夹板", "clampeddelay", "clampedenabled"};
+    m_synonyms["板"] = QStringList{"board", "pcb", "板卡", "boardcount", "boardtable", "boardexport", "boarddrop"};
+    m_synonyms["板宽"] = QStringList{"boardwidth", "maxlength", "maxwidth", "minlength", "minwidth"};
+    m_synonyms["速度等级"] = QStringList{"speedlevel", "outboardspeedlevel"};
+    m_synonyms["NG 输出"] = QStringList{"ngoutput", "ngoutputmethods"};
+    m_synonyms["轨道宽度"] = QStringList{"trackwidth", "autotrackwidthadjustment"};
+    m_synonyms["进板方向"] = QStringList{"carrydirection", "carryindirection"};
+    m_synonyms["基线"] = QStringList{"baseline", "基线"};
+    m_synonyms["位置"] = QStringList{"position", "位置", "pos"};
+
+    // ===== 数据库/网络/通信（基于数据库实际数据扩展）=====
+    m_synonyms["数据库"] = QStringList{"database", "db", "sql", "dbaccount", "dbname", "dbpassword", "dbusername", "dbpassword", "exportimportdatabase", "databasecleanthreshold", "keepdatabaserecent", "isclearhistorydatabase"};
+    m_synonyms["服务器"] = QStringList{"server", "服务器", "serverip", "serverport", "servername", "serveraddress", "eaphost"};
+    m_synonyms["IP 地址"] = QStringList{"ip", "ipaddress", "ip", "ftpip", "plcip", "pcip", "repairip", "workstationip", "serverip", "addressip"};
+    m_synonyms["端口"] = QStringList{"port", "端口", "portname", "ftpport", "plcport", "repairport", "serverport", "addressport", "flashcomport", "modbuscomport"};
+    m_synonyms["网络"] = QStringList{"network", "网络", "networkpath", "savepicturenetworkpath", "mac", "subnet", "网关", "dhcp", "static"};
+    m_synonyms["FTP"] = QStringList{"ftp", "ftppath", "ftpimageport", "ftptxtport", "ftpip", "ftpport"};
+    m_synonyms["TCP"] = QStringList{"tcp", "tcpip", "tcpport", "uploadcheck", "uploaddata"};
+    m_synonyms["PLC"] = QStringList{"plc", "plcip", "plcport", "modbus", "modbuscom", "modbuscombaud", "modbuscomport"};
+    m_synonyms["MODBUS"] = QStringList{"modbus", "modbuscom", "modbuscombaud", "modbuscomport"};
+    m_synonyms["账户"] = QStringList{"account", "账户", "dbaccount", "dbusername", "dbpassword", "password", "user"};
+    m_synonyms["上传"] = QStringList{"upload", "上传", "uploadcheck", "uploaddata", "sendserver", "sendfailed"};
+    m_synonyms["MES"] = QStringList{"mes", "制造执行系统", "checkurl", "checksnurl", "checkmacurl", "checkbarcodeurl", "testreporturl"};
+    m_synonyms["EAP"] = QStringList{"eap", "企业应用集成", "eaphost"};
+
+    // ===== 检测/扫描/结果（基于数据库实际数据扩展）=====
+    m_synonyms["检测"] = QStringList{"inspection", "inspect", "检测", "projectioninspection", "autojudge"};
+    m_synonyms["扫描"] = QStringList{"scan", "扫描", "scanside", "scanstage"};
+    m_synonyms["结果"] = QStringList{"result", "结果", "compresult", "checkresult", "focusstatus", "lscorrectionresult", "reviewresult"};
+    m_synonyms["NG"] = QStringList{"ng", "不良", "ngoutput", "ngcompontvoicetip"};
+    m_synonyms["通过"] = QStringList{"pass", "ok", "通过", "合格"};
+    m_synonyms["捕获场景"] = QStringList{"capturescene", "capturescenetype", "capture"};
+    m_synonyms["重复次数"] = QStringList{"repeatcnt", "repeat", "cycles"};
+    m_synonyms["完成标志"] = QStringList{"completedflag", "completed", "finish"};
+    m_synonyms["相机类型"] = QStringList{"cameratype", "cameratype", "stage"};
+
+    // ===== 导出/导入/文件（基于数据库实际数据扩展）=====
+    m_synonyms["导出"] = QStringList{"export", "导出", "exportmethod", "exportname", "exportpicture", "exporttimeout", "boardexport", "compexport", "projectexport", "exportalgorithmparam"};
+    m_synonyms["导入"] = QStringList{"import", "导入", "importdatabase", "import"};
+    m_synonyms["文件"] = QStringList{"file", "文件", "filepath", "choosefile", "openfile", "deleteboard", "removeboard"};
+    m_synonyms["项目"] = QStringList{"project", "项目", "projectpath", "mainprojectpath", "createprojecttime", "projectexport"};
+    m_synonyms["路径"] = QStringList{"path", "路径", "backupsavepath", "diskpath", "copyPath", "savepicturenetworkpath"};
+    m_synonyms["保存"] = QStringList{"save", "保存", "backupsavepath", "savepicture"};
+    m_synonyms["备份"] = QStringList{"backup", "备份", "backupsavepath", "copyfile"};
+    m_synonyms["复制"] = QStringList{"copy", "复制", "copyfile", "copypath"};
+
+    // ===== 条码/RFID（基于数据库实际数据扩展）=====
+    m_synonyms["条码"] = QStringList{"barcode", "条码", "barcodeinfid", "checkbarcode", "assignbarcode", "bindboardcode", "bindchildboardcode", "bothsidecode"};
+    m_synonyms["RFID"] = QStringList{"rfid", "射频识别", "rfidbrand", "rfidbrandlane"};
+    m_synonyms["二维码"] = QStringList{"qrcode", "qr", "二维码", "datamatrix", "dm"};
+    m_synonyms["绑定"] = QStringList{"bind", "绑定", "bindboardcode", "bindchildboardcode"};
+
+    // ===== 声音/提示（基于数据库实际数据扩展）=====
+    m_synonyms["声音"] = QStringList{"voice", "声音", "buzzer", "badboardvoicetip", "ngcompontvoicetip"};
+    m_synonyms["提示"] = QStringList{"tip", "提示", "tips", "sendfailedshowtips", "recicemestip", "reviewresultwindowtip", "badboardwindowtip"};
+    m_synonyms["蜂鸣器"] = QStringList{"buzzer", "蜂鸣器", "alarm"};
+    m_synonyms["窗口"] = QStringList{"window", "窗口", "showchildboard", "windowtip"};
+
+    // ===== 维修/重测（基于数据库实际数据扩展）=====
+    m_synonyms["维修"] = QStringList{"repair", "维修", "repairip", "repairport"};
+    m_synonyms["重测"] = QStringList{"retest", "重测", "recicemes"};
+    m_synonyms["脚本"] = QStringList{"script", "脚本", "script"};
+
+    // ===== WIP/夹具/工位（基于数据库实际数据扩展）=====
+    m_synonyms["WIP"] = QStringList{"wip", "在制品", "wipid"};
+    m_synonyms["夹具"] = QStringList{"fixture", "夹具", "fixturenum"};
+    m_synonyms["工位"] = QStringList{"workstation", "工位", "workstationip", "station"};
+    m_synonyms["设施"] = QStringList{"facility", "设施", "facshortcode"};
+    m_synonyms["PCBA"] = QStringList{"pcba", "pcb 组装", "pcb", "selectchildboard", "childboardvisible"};
+    m_synonyms["SMT"] = QStringList{"smt", "表面贴装技术", "贴片机"};
+    m_synonyms["回流焊"] = QStringList{"reflow", "回流焊", "supportreflowtrack"};
+    m_synonyms["波峰焊"] = QStringList{"wave", "波峰焊"};
+    m_synonyms["SPI"] = QStringList{"spi", "锡膏检测"};
+    m_synonyms["AXI"] = QStringList{"axi", "自动 X 射线检测"};
+
     // ===== 系统/硬件 =====
     m_synonyms["配置"] = QStringList{"config", "configuration", "settings", "参数", "prefs", "preferences"};
     m_synonyms["预设"] = QStringList{"preset", "默认值", "模板", "profile", "scheme"};
@@ -131,31 +251,28 @@ void AiService::initSynonymDictionary()
     m_synonyms["电源"] = QStringList{"power", "供电", "电压", "电流", "voltage", "ampere", "watt"};
     m_synonyms["gpio"] = QStringList{"通用 io", "输入输出", "数字 io", "光耦", "input", "output", "pin"};
     m_synonyms["pwm"] = QStringList{"脉冲调制", "占空比", "频率", "pulse width", "hz"};
-    m_synonyms["编码器"] = QStringList{"encoder", "码盘", "位置反馈", "rotary", "linear"};
-    m_synonyms["电机"] = QStringList{"motor", "步进电机", "伺服", "servo", "stepper", "驱动器"};
-    m_synonyms["传感器"] = QStringList{"sensor", "感应器", "探测器", "detector", "proximity"};
     m_synonyms["环境"] = QStringList{"environment", "温湿度", "光照", "humidity", "ambient"};
-    
+
     // ===== 安全/维护 =====
     m_synonyms["安全"] = QStringList{"security", "加密", "认证", "password", "token", "license"};
     m_synonyms["备份"] = QStringList{"backup", "还原", "restore", "导出", "import", "export"};
     m_synonyms["更新"] = QStringList{"update", "升级", "patch", "hotfix", "upgrade", "migrate"};
-    m_synonyms["插件"] = QStringList{"plugin", "扩展", "module", "addon", "extension", "dll", "so"};
-    m_synonyms["接口"] = QStringList{"interface", "api", "sdk", "驱动", "driver", "binding"};
-    m_synonyms["协议"] = QStringList{"protocol", "tcp", "udp", "http", "rtsp", "onvif", "modbus"};
-    
+    m_synonyms["插件"] = QStringList{"plugin", "扩展", "module", "addon", "extension", "dll", "so", "cameraplugin", "cameraconfigname"};
+    m_synonyms["接口"] = QStringList{"interface", "api", "sdk", "驱动", "driver", "binding", "checkintfname"};
+    m_synonyms["协议"] = QStringList{"protocol", "tcp", "udp", "http", "rtsp", "onvif", "modbus", "conntype"};
+
     // ===== 开发/调试 =====
     m_synonyms["调试"] = QStringList{"debug", "断点", "监视", "inspect", "console", "trace"};
-    m_synonyms["测试"] = QStringList{"test", "单元测试", "集成测试", "validation", "verify", "benchmark"};
+    m_synonyms["测试"] = QStringList{"test", "单元测试", "集成测试", "validation", "verify", "benchmark", "autotest"};
     m_synonyms["性能"] = QStringList{"performance", "优化", "benchmark", "speed", "fps", "latency"};
     m_synonyms["并发"] = QStringList{"concurrent", "多线程", "异步", "async", "thread", "parallel"};
     m_synonyms["序列化"] = QStringList{"serialization", "json", "xml", "protobuf", "yaml", "marshal"};
-    
+
     // ===== 文档/帮助 =====
     m_synonyms["文档"] = QStringList{"document", "manual", "help", "说明", "guide", "tutorial", "wiki"};
     m_synonyms["帮助"] = QStringList{"help", "support", "faq", "常见问题", "question", "issue"};
     m_synonyms["关于"] = QStringList{"about", "版本信息", "author", "版权", "copyright", "contact"};
-    
+
     // ===== LED/光源 =====
     m_synonyms["led"] = QStringList{"光源", "照明", "补光灯", "strobe", "light source", "illumination"};
     m_synonyms["红光"] = QStringList{"red light", "620nm", "红色光源"};
@@ -167,7 +284,7 @@ void AiService::initSynonymDictionary()
     m_synonyms["条形"] = QStringList{"bar light", "条形光源", "line light"};
     m_synonyms["点光源"] = QStringList{"spot light", "点光", "focused"};
     m_synonyms["偏振"] = QStringList{"polarizer", "偏光", "polarization", "偏振片"};
-    
+
     // ===== 中文拼音简写映射 =====
     m_synonyms["jq"] = QStringList() << "相机" << "机器" << "机器视觉" << "camera";
     m_synonyms["gx"] = QStringList() << "光学" << "光纤" << "感光" << "optical";
@@ -180,22 +297,101 @@ void AiService::initSynonymDictionary()
     m_synonyms["ty"] = QStringList() << "投影" << "投影仪" << "pattern" << "projector";
     m_synonyms["yj"] = QStringList() << "硬件" << "硬件配置" << "hardware" << "device";
     m_synonyms["yh"] = QStringList() << "用户" << "用户配置" << "user" << "username";
-    m_synonyms["ty"] = QStringList() << "调整" << "调整配置" << "adjust" << "tuning";
+    m_synonyms["tz"] = QStringList() << "调整" << "调整配置" << "adjust" << "tuning";
     m_synonyms["jd"] = QStringList() << "精度" << "精度校准" << "accuracy" << "precision";
     m_synonyms["sb"] = QStringList() << "设备" << "设备信息" << "device" << "equipment";
     m_synonyms["cw"] = QStringList() << "错误" << "错误码" << "error" << "fault";
     m_synonyms["rz"] = QStringList() << "日志" << "运行日志" << "log" << "record";
+    m_synonyms["gy"] = QStringList() << "光源" << "光学" << "light" << "optical";
+    m_synonyms["dd"] = QStringList() << "轨道" << "传送带" << "lane" << "conveyor";
+    m_synonyms["yb"] = QStringList() << "板子" << "PCB" << "board" << "pcb";
+    m_synonyms["sj"] = QStringList() << "数据" << "数据库" << "database" << "db";
+    m_synonyms["fw"] = QStringList() << "服务器" << "服务" << "server" << "service";
+    m_synonyms["dz"] = QStringList() << "电子" << "电子厂" << "electronics";
+    m_synonyms["azz"] = QStringList() << "aoi" << "自动光学检测" << "aoimachine";
+    m_synonyms["gg"] = QStringList() << "光光" << "光源" << "light" << "brightness";
 }
 
 void AiService::initDomainKeywords()
 {
     // 相机配置关键词
-    m_domainKeywords["camera"] = QStringList{"exposure", "gain", "trigger", "framerate", "resolution", "white balance", "gamma"};
-    m_domainKeywords["projector"] = QStringList{"pattern", "phase", "intensity", "wavelength", "focus"};
-    m_domainKeywords["calibration"] = QStringList{"intrinsic", "extrinsic", "distortion", "reprojection", "error"};
-    m_domainKeywords["hardware"] = QStringList{"temperature", "fan", "voltage", "current", "power"};
-    m_domainKeywords["user"] = QStringList{"name", "password", "role", "permission", "level"};
-    m_domainKeywords["system"] = QStringList{"version", "platform", "os", "driver", "firmware"};
+    m_domainKeywords["camera"] = QStringList{"exposure", "gain", "trigger", "framerate", "resolution", "white balance", "gamma", 
+        "cameralist", "cameratype", "cameraplugin", "cameraconfigname", "capturesize", "actualresolution", 
+        "focus", "diffocus", "standardfocus", "focusstatus", "averagebrightness"};
+    
+    // 投影/结构光关键词
+    m_domainKeywords["projector"] = QStringList{"pattern", "phase", "intensity", "wavelength", "focus", 
+        "projectionbrightness", "projectioninspection", "projectionzscale", "projectiontype",
+        "cyclesparameter", "meanrange", "standarddeviationrange"};
+    
+    // 标定/校准关键词
+    m_domainKeywords["calibration"] = QStringList{"intrinsic", "extrinsic", "distortion", "reprojection", "error",
+        "calibrationcalsetting", "calibrationdatas", "calibrationdate", "calibrationzaxis",
+        "cal3d", "calcamerasetting", "callightsetting", "calmechanismsetting", "calverificationsetting",
+        "targetinfo", "targetname", "targetposlist", "completedflag", "cmksetting"};
+    
+    // 光源/光学关键词
+    m_domainKeywords["light"] = QStringList{"brightness", "lighttype", "lightenablelist", "lightlevel",
+        "calbrightnessblue", "calbrightnessgreen", "calbrightnessred", "light2dsetting",
+        "uniformluminance", "lsccorrectionresult", "channelvalues", "channeldiffvalue",
+        "correlationlimit", "grayhighlimit", "graylowlimit"};
+    
+    // 运动控制/机械关键词
+    m_domainKeywords["motion"] = QStringList{"origin", "offset", "axis", "speed", "accel", "decel",
+        "mechanismmotion", "motionorigin", "originoffsetx", "originoffsety", "originoffsetz",
+        "axiscontroltype", "axistopyreverse", "scanside"};
+    
+    // 传送带/轨道关键词
+    m_domainKeywords["conveyor"] = QStringList{"lane", "carryin", "carryout", "clamp", "board",
+        "conveyorcalsize", "conveyorcarryout", "conveyoruser", "conveyorwait",
+        "carrydirection", "carryindirection", "baseline", "position", "stage",
+        "speedlevel", "outboardspeedlevel", "ngoutputmethods", "clampeddelay", "clampedenabled"};
+    
+    // 数据库/网络关键词
+    m_domainKeywords["database"] = QStringList{"db", "sql", "server", "ip", "port", "account", "password",
+        "dbaccount", "dbname", "dbpassword", "dbusername", "exportimportdatabase",
+        "serverip", "serverport", "ftpip", "ftpport", "plcip", "plcport"};
+    
+    // 设备信息关键词
+    m_domainKeywords["device"] = QStringList{"equipment", "deviceid", "devicename", "deviceserialnumber",
+        "devicetype", "equipcode", "equipid", "equipmodel", "equipname", "equipmentid",
+        "appversion", "autotestversion", "factory", "workstation", "devno", "deviceno"};
+    
+    // 检测/结果关键词
+    m_domainKeywords["inspection"] = QStringList{"result", "scan", "check", "ng", "pass",
+        "compresult", "checkresult", "lscorrectionresult", "reviewresult",
+        "autojudge", "projectioninspection", "capturescene", "repeatcnt"};
+    
+    // 条码/RFID 关键词
+    m_domainKeywords["barcode"] = QStringList{"barcode", "qrcode", "rfid", "bind", "sn",
+        "barcodeinfid", "checkbarcode", "assignbarcode", "bindboardcode", "bindchildboardcode",
+        "rfidbrand", "bothsidecode"};
+    
+    // 导出/文件关键词
+    m_domainKeywords["export"] = QStringList{"file", "path", "save", "backup", "copy",
+        "exportmethod", "exportname", "exportpicture", "exporttimeout", "boardexport",
+        "compexport", "projectexport", "backupsavepath", "diskpath", "copyfile"};
+    
+    // 硬件/系统关键词
+    m_domainKeywords["hardware"] = QStringList{"temperature", "fan", "voltage", "current", "power",
+        "buzzer", "gpio", "pwm", "sensor", "encoder", "motor"};
+    
+    // 用户/权限关键词
+    m_domainKeywords["user"] = QStringList{"name", "password", "role", "permission", "level",
+        "account", "calibrationuser", "author"};
+    
+    // 系统/版本关键词
+    m_domainKeywords["system"] = QStringList{"version", "platform", "os", "driver", "firmware",
+        "appversion", "autotestversion", "createprojecttime", "elapsedtime"};
+    
+    // MES/EAP集成关键词
+    m_domainKeywords["mes"] = QStringList{"eap", "upload", "check", "test", "report",
+        "checkurl", "checksnurl", "checkmacurl", "testreporturl", "eaphost",
+        "uploadcheck", "uploaddata", "sendserver", "sendfailed"};
+    
+    // SMT/PCBA 关键词
+    m_domainKeywords["smt"] = QStringList{"pcba", "pcb", "reflow", "wave", "spi", "axi",
+        "fixture", "wip", "workstation", "selectchildboard", "childboardvisible"};
 }
 
 QString AiService::analyzeIntent(const QString& query)
