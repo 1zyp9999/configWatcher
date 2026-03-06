@@ -2188,18 +2188,17 @@ Item {
                             onClicked: {
                                 if (!mainPage.settingsFilePath) { console.warn("未选择文件"); return; }
                                 var arr = [];
-                                var skippedCount = 0;
+                                var readOnlyCount = 0;
                                 for (var i=0;i<settingsModel.count;i++) {
                                     var it = settingsModel.get(i);
-                                    // 跳过只读字段
-                                    if (it.readOnly) {
-                                        skippedCount++
-                                        continue
-                                    }
+                                    // 只读字段也保存，只是不允许用户修改
                                     arr.push({ key: it.key, value: it.value })
+                                    if (it.readOnly) {
+                                        readOnlyCount++
+                                    }
                                 }
-                                if (skippedCount > 0) {
-                                    console.log("跳过", skippedCount, "个只读字段")
+                                if (readOnlyCount > 0) {
+                                    console.log("包含", readOnlyCount, "个只读字段")
                                 }
                                 if (typeof searchVM.writeConfigFile === 'function') {
                                     var ok = searchVM.writeConfigFile(mainPage.settingsFilePath, arr);
