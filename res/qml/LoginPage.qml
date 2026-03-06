@@ -182,12 +182,47 @@ Item {
             }
 
             // 密码标签 + 输入框
-            Text {
-                text: qsTr("密码")
-                font.pointSize: 12
-                color: "#94a3b8"
-                Layout.bottomMargin: -14
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Text {
+                    text: qsTr("密码")
+                    font.pointSize: 12
+                    color: "#94a3b8"
+                }
+
+                Item { Layout.fillWidth: true }
+
+                // 明文/密文切换按钮
+                Rectangle {
+                    width: 28; height: 28; radius: 6
+                    color: showPasswordMA.containsMouse ? "#334155" : "transparent"
+                    ToolTip {
+                        visible: showPasswordMA.containsMouse
+                        text: passwordField.echoMode === TextField.Password ? "显示密码" : "隐藏密码"
+                        timeout: 1000
+                    }
+                    Text {
+                        anchors.centerIn: parent
+                        text: passwordField.echoMode === TextField.Password ? "👁️" : "🙈"
+                        font.pointSize: 12
+                    }
+                    MouseArea {
+                        id: showPasswordMA
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            passwordField.echoMode = passwordField.echoMode === TextField.Password
+                                ? TextInput.Normal
+                                : TextInput.Password
+                            passwordField.forceActiveFocus()
+                        }
+                    }
+                }
             }
+
             TextField {
                 id: passwordField
                 text: loginVM.password || ""

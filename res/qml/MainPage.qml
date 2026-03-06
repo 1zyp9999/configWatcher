@@ -2877,10 +2877,46 @@ Item {
                     Layout.fillWidth: true
                     spacing: 6
 
-                    Text {
-                        text: "请输入密码"
-                        color: textSecondary
-                        font.pointSize: 11
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+
+                        Text {
+                            text: "请输入密码"
+                            color: textSecondary
+                            font.pointSize: 11
+                            Layout.alignment: Qt.AlignLeft
+                        }
+
+                        Item { Layout.fillWidth: true }
+
+                        // 明文/密文切换按钮
+                        Rectangle {
+                            width: 28; height: 28; radius: 6
+                            color: showPasswordMA.containsMouse ? "#334155" : "transparent"
+                            ToolTip {
+                                visible: showPasswordMA.containsMouse
+                                text: passwordField.echoMode === TextInput.Password ? "显示密码" : "隐藏密码"
+                                timeout: 1000
+                            }
+                            Text {
+                                anchors.centerIn: parent
+                                text: passwordField.echoMode === TextInput.Password ? "👁️" : "🙈"
+                                font.pointSize: 12
+                            }
+                            MouseArea {
+                                id: showPasswordMA
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    passwordField.echoMode = passwordField.echoMode === TextInput.Password
+                                        ? TextInput.Normal
+                                        : TextInput.Password
+                                    passwordField.forceActiveFocus()
+                                }
+                            }
+                        }
                     }
 
                     TextField {
