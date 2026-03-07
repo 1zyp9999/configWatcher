@@ -1266,8 +1266,9 @@ Item {
                         font.pointSize: 18
                         font.bold: true
                         color: textPrimary
-                        Layout.fillWidth: true
                     }
+
+                    Item { Layout.fillWidth: true }
 
                     // 关闭按钮
                     Rectangle {
