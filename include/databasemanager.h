@@ -5,6 +5,8 @@
 #include <QSqlDatabase>
 #include <QString>
 #include <QVariant>
+#include <QMap>
+#include <QDateTime>
 
 class DatabaseManager : public QObject
 {
@@ -15,6 +17,7 @@ public:
 
     bool openDatabase(const QString& path, const QString& connectionName = QString(), bool setAsGlobalInstance = true);
     void closeDatabase();
+    void invalidateCache();
 
     bool saveConfigEntry(const QString& key, const QString& value, const QString& filePath, const QString& format, const QString& chineseKey);
 
@@ -22,6 +25,15 @@ public:
     Q_INVOKABLE bool importIniFile(const QString& filePath, const QString& device = QString());
     Q_INVOKABLE bool importJsonFile(const QString& filePath, const QString& device = QString());
     Q_INVOKABLE bool importXmlFile(const QString& filePath, const QString& device = QString());
+    
+    // 异步导入配置文件
+    Q_INVOKABLE void importFilesAsync(const QStringList& filePaths, const QString& device = QString());
+
+signals:
+    void importProgress(int current, int total, const QString& currentFile);
+    void importFinished(int successCount, int failCount);
+
+public:
 
     // 翻译表管理：列出、设置并将翻译应用到 parameters
     Q_INVOKABLE QVariantList listTranslations();
@@ -76,6 +88,19 @@ private:
     QString m_connectionName;
     bool m_useFts5 = false;
     static DatabaseManager* s_instance;
+    
+    struct QueryCache {
+        QString key;
+        QVariantList result;
+        qint64 timestamp;
+    };
+    QMap<QString, QueryCache> m_queryCache;
+    qint64 m_cacheTtl = 5000;
+    int m_maxCacheSize = 100;
+    
+    QString makeCacheKey(const QString& query, int mode, const QString& formatFilter);
+    bool isCacheValid(const QueryCache& cache);
+    void cleanOldCache();
 };
 
 #endif // DATABASEMANAGER_H

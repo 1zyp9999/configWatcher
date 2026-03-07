@@ -28,6 +28,9 @@ Item {
     ListModel { id: historyModel }
     ListModel { id: hotSearchModel }
     ListModel { id: changeLogModel }
+    
+    property bool cachedAiEnabled: false
+    property int cachedResultCount: 0
 
     // ===== 深色配色方案（与登录界面统一） =====
     property color primaryColor: "#2563EB"        // 主色：蓝
@@ -87,6 +90,13 @@ Item {
         id: searchVM
         Component.onCompleted: {
             if (typeof searchVM.searchText === 'undefined') searchVM.searchText = ""
+            mainPage.cachedAiEnabled = searchVM.aiEnabled
+        }
+        onAiEnabledChanged: {
+            mainPage.cachedAiEnabled = searchVM.aiEnabled
+        }
+        onSearchResultsChanged: {
+            mainPage.cachedResultCount = searchVM.searchResults ? searchVM.searchResults.length : 0
         }
     }
 
@@ -207,7 +217,7 @@ Item {
                             id: aiMenuText
                             text: qsTr("AI 管理")
                             anchors.centerIn: parent
-                            color: searchVM.aiEnabled ? "#60a5fa" : textSecondary
+                            color: mainPage.cachedAiEnabled ? "#60a5fa" : textSecondary
                             font.pointSize: 13
                         }
                     }
@@ -507,11 +517,11 @@ Item {
                             text: searchVM.searchText || ""
                             onAccepted: {
                                 searchVM.searchText = text
-                                if (searchVM.aiEnabled) searchVM.analyzeSearchQuery(text)
+                                if (mainPage.cachedAiEnabled) searchVM.analyzeSearchQuery(text)
                                 searchVM.updateSearchResults()
                             }
                             onTextChanged: {
-                                if (searchVM.aiEnabled && text.length >= 2) {
+                                if (mainPage.cachedAiEnabled && text.length >= 2) {
                                     analyzeTimer.restart()
                                 }
                             }
@@ -528,12 +538,11 @@ Item {
                             }
                         }
 
-                        // 定时器：用于延迟触发 AI 分析，避免频繁调用
                         Timer {
                             id: analyzeTimer
                             interval: 300
                             onTriggered: {
-                                if (searchVM.aiEnabled && searchField.text.length >= 2) {
+                                if (mainPage.cachedAiEnabled && searchField.text.length >= 2) {
                                     searchVM.analyzeSearchQuery(searchField.text)
                                 }
                             }
@@ -550,12 +559,11 @@ Item {
                                 console.log("[DEBUG] 搜索按钮被点击，searchText=", searchField.text)
                                 console.log("[DEBUG] DB exists:", (typeof DB !== 'undefined'))
                                 searchVM.searchText = searchField.text
-                                if (searchVM.aiEnabled) searchVM.analyzeSearchQuery(searchField.text)
+                                if (mainPage.cachedAiEnabled) searchVM.analyzeSearchQuery(searchField.text)
                                 searchVM.updateSearchResults()
-                                console.log("[DEBUG] 搜索结果数量:", searchVM.searchResults ? searchVM.searchResults.length : 0)
-                                // 记录搜索历史
+                                console.log("[DEBUG] 搜索结果数量:", mainPage.cachedResultCount)
                                 if (searchVM.learningEnabled && searchField.text.trim() !== "") {
-                                    searchVM.recordSearch(searchField.text, searchVM.searchResults ? searchVM.searchResults.length : 0, false)
+                                    searchVM.recordSearch(searchField.text, mainPage.cachedResultCount, false)
                                 }
                             }
                             background: Rectangle {
@@ -569,12 +577,12 @@ Item {
                         Rectangle {
                             id: aiToggleBtn
                             width: 38; height: 38; radius: 10
-                            color: searchVM.aiEnabled ? "#1e3a5f" : surfaceColor
-                            border.color: searchVM.aiEnabled ? "#60a5fa" : borderColor
+                            color: mainPage.cachedAiEnabled ? "#1e3a5f" : surfaceColor
+                            border.color: mainPage.cachedAiEnabled ? "#60a5fa" : borderColor
                             border.width: 1
                             ToolTip {
                                 visible: aiToggleMouse.containsMouse
-                                text: searchVM.aiEnabled ? "关闭 AI 增强" : "开启 AI 增强"
+                                text: mainPage.cachedAiEnabled ? "关闭 AI 增强" : "开启 AI 增强"
                                 timeout: 2000
                             }
                             MouseArea {
@@ -583,14 +591,14 @@ Item {
                                 cursorShape: Qt.PointingHandCursor
                                 hoverEnabled: true
                                 onClicked: searchVM.aiEnabled = !searchVM.aiEnabled
-                                onEntered: { if (searchVM.aiEnabled) parent.color = "#254575"; else parent.color = "#334155" }
-                                onExited: { if (searchVM.aiEnabled) parent.color = "#1e3a5f"; else parent.color = surfaceColor }
+                                onEntered: { if (mainPage.cachedAiEnabled) parent.color = "#254575"; else parent.color = "#334155" }
+                                onExited: { if (mainPage.cachedAiEnabled) parent.color = "#1e3a5f"; else parent.color = surfaceColor }
                             }
                             Text {
-                                text: searchVM.aiEnabled ? "🤖" : "🤖"
+                                text: mainPage.cachedAiEnabled ? "🤖" : "🤖"
                                 anchors.centerIn: parent
                                 font.pointSize: 16
-                                opacity: searchVM.aiEnabled ? 1.0 : 0.5
+                                opacity: mainPage.cachedAiEnabled ? 1.0 : 0.5
                             }
                         }
 
@@ -3136,95 +3144,325 @@ Item {
                 anchors.leftMargin: 20; anchors.rightMargin: 20
                 color: "transparent"
                 visible: aiTabs.selectedIndex === 2
-                ColumnLayout {
-                    anchors.fill: parent; spacing: 16
-                    Rectangle {
-                        color: surfaceColor; radius: 10; Layout.fillWidth: true; implicitHeight: 70
-                        border.color: borderColor; border.width: 1
-                        RowLayout {
-                            anchors.fill: parent; anchors.margins: 16; spacing: 16
-                            Text { text: "🤖"; font.pointSize: 28; opacity: searchVM.aiEnabled ? 1.0 : 0.5 }
-                            ColumnLayout {
-                                Layout.fillWidth: true; spacing: 4
-                                Text { text: "AI 智能增强"; color: textPrimary; font.pointSize: 14; font.bold: true }
-                                Text { text: "自动分析搜索意图，提供智能建议"; color: textSecondary; font.pointSize: 11 }
-                            }
-                            Rectangle {
-                                width: 56; height: 28; radius: 14
-                                color: searchVM.aiEnabled ? primaryColor : cardColor
-                                border.color: searchVM.aiEnabled ? primaryLight : borderColor; border.width: 1
-                                Rectangle {
-                                    width: 24; height: 24; radius: 12; color: "#FFFFFF"
-                                    x: searchVM.aiEnabled ? parent.width - 26 : 2; y: 2
-                                    Behavior on x { NumberAnimation { duration: 200 } }
-                                }
-                                MouseArea { anchors.fill: parent; onClicked: searchVM.aiEnabled = !searchVM.aiEnabled; cursorShape: Qt.PointingHandCursor }
-                            }
-                        }
+                
+                AiClient {
+                    id: aiClient
+                    Component.onCompleted: {
+                        aiClient.loadSettings()
                     }
-                    Rectangle {
-                        color: surfaceColor; radius: 10; Layout.fillWidth: true; implicitHeight: 70
-                        border.color: borderColor; border.width: 1
-                        RowLayout {
-                            anchors.fill: parent; anchors.margins: 16; spacing: 16
-                            Text { text: "🧠"; font.pointSize: 28 }
-                            ColumnLayout {
-                                Layout.fillWidth: true; spacing: 4
-                                Text { text: "搜索历史学习"; color: textPrimary; font.pointSize: 14; font.bold: true }
-                                Text { text: "记录搜索历史，优化建议排序"; color: textSecondary; font.pointSize: 11 }
-                            }
-                            Rectangle {
-                                width: 56; height: 28; radius: 14
-                                color: searchVM.learningEnabled ? primaryColor : cardColor
-                                border.color: searchVM.learningEnabled ? primaryLight : borderColor; border.width: 1
-                                Rectangle {
-                                    width: 24; height: 24; radius: 12; color: "#FFFFFF"
-                                    x: searchVM.learningEnabled ? parent.width - 26 : 2; y: 2
-                                    Behavior on x { NumberAnimation { duration: 200 } }
-                                }
-                                MouseArea { anchors.fill: parent; onClicked: searchVM.setLearningEnabled(!searchVM.learningEnabled); cursorShape: Qt.PointingHandCursor }
-                            }
-                        }
-                    }
-                    Rectangle {
-                        color: surfaceColor; radius: 10; Layout.fillWidth: true; implicitHeight: 100
-                        border.color: borderColor; border.width: 1
-                        ColumnLayout {
-                            anchors.fill: parent; anchors.margins: 16; spacing: 12
-                            Text { text: "📊 统计信息"; color: textPrimary; font.pointSize: 14; font.bold: true }
+                }
+                
+                Flickable {
+                    anchors.fill: parent
+                    contentHeight: aiSettingsContent.implicitHeight
+                    flickableDirection: Flickable.VerticalFlick
+                    clip: true
+                    
+                    ColumnLayout {
+                        id: aiSettingsContent
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        spacing: 16
+                        
+                        // AI 智能增强开关
+                        Rectangle {
+                            color: surfaceColor; radius: 10; Layout.fillWidth: true; implicitHeight: 70
+                            border.color: borderColor; border.width: 1
                             RowLayout {
-                                Layout.fillWidth: true; spacing: 16
-                                Repeater {
-                                    model: [
-                                        {count: userDictModel.count, label: "自定义词条", color: primaryLight},
-                                        {count: historyModel.count, label: "搜索历史", color: accentColor},
-                                        {count: hotSearchModel.count, label: "热门搜索", color: warningColor}
-                                    ]
-                                    delegate: Rectangle {
-                                        color: cardColor; radius: 8
-                                        Layout.preferredWidth: 150; Layout.preferredHeight: 50
+                                anchors.fill: parent; anchors.margins: 16; spacing: 16
+                                Text { text: "🤖"; font.pointSize: 28; opacity: searchVM.aiEnabled ? 1.0 : 0.5 }
+                                ColumnLayout {
+                                    Layout.fillWidth: true; spacing: 4
+                                    Text { text: "AI 智能增强"; color: textPrimary; font.pointSize: 14; font.bold: true }
+                                    Text { text: "自动分析搜索意图，提供智能建议"; color: textSecondary; font.pointSize: 11 }
+                                }
+                                Rectangle {
+                                    width: 56; height: 28; radius: 14
+                                    color: searchVM.aiEnabled ? primaryColor : cardColor
+                                    border.color: searchVM.aiEnabled ? primaryLight : borderColor; border.width: 1
+                                    Rectangle {
+                                        width: 24; height: 24; radius: 12; color: "#FFFFFF"
+                                        x: searchVM.aiEnabled ? parent.width - 26 : 2; y: 2
+                                        Behavior on x { NumberAnimation { duration: 200 } }
+                                    }
+                                    MouseArea { anchors.fill: parent; onClicked: searchVM.aiEnabled = !searchVM.aiEnabled; cursorShape: Qt.PointingHandCursor }
+                                }
+                            }
+                        }
+                        
+                        // 搜索历史学习开关
+                        Rectangle {
+                            color: surfaceColor; radius: 10; Layout.fillWidth: true; implicitHeight: 70
+                            border.color: borderColor; border.width: 1
+                            RowLayout {
+                                anchors.fill: parent; anchors.margins: 16; spacing: 16
+                                Text { text: "🧠"; font.pointSize: 28 }
+                                ColumnLayout {
+                                    Layout.fillWidth: true; spacing: 4
+                                    Text { text: "搜索历史学习"; color: textPrimary; font.pointSize: 14; font.bold: true }
+                                    Text { text: "记录搜索历史，优化建议排序"; color: textSecondary; font.pointSize: 11 }
+                                }
+                                Rectangle {
+                                    width: 56; height: 28; radius: 14
+                                    color: searchVM.learningEnabled ? primaryColor : cardColor
+                                    border.color: searchVM.learningEnabled ? primaryLight : borderColor; border.width: 1
+                                    Rectangle {
+                                        width: 24; height: 24; radius: 12; color: "#FFFFFF"
+                                        x: searchVM.learningEnabled ? parent.width - 26 : 2; y: 2
+                                        Behavior on x { NumberAnimation { duration: 200 } }
+                                    }
+                                    MouseArea { anchors.fill: parent; onClicked: searchVM.setLearningEnabled(!searchVM.learningEnabled); cursorShape: Qt.PointingHandCursor }
+                                }
+                            }
+                        }
+                        
+                        // ===== 真正的 AI API 配置 =====
+                        Rectangle {
+                            color: surfaceColor; radius: 10; Layout.fillWidth: true
+                            implicitHeight: apiConfigContent.implicitHeight + 32
+                            border.color: primaryColor; border.width: 1
+                            ColumnLayout {
+                                id: apiConfigContent
+                                anchors.fill: parent; anchors.margins: 16; spacing: 12
+                                
+                                RowLayout {
+                                    Layout.fillWidth: true; spacing: 8
+                                    Text { text: "🔌"; font.pointSize: 16 }
+                                    Text { text: "AI API 配置"; color: primaryLight; font.pointSize: 14; font.bold: true }
+                                    Item { Layout.fillWidth: true }
+                                    Rectangle {
+                                        width: 12; height: 12; radius: 6
+                                        color: aiClient.enabled ? "#10B981" : "#EF4444"
+                                        ToolTip { visible: statusMA.containsMouse; text: aiClient.enabled ? "已连接" : "未配置"; timeout: 1500 }
+                                        MouseArea { id: statusMA; anchors.fill: parent; hoverEnabled: true }
+                                    }
+                                }
+                                
+                                // 提供商选择
+                                RowLayout {
+                                    Layout.fillWidth: true; spacing: 12
+                                    Text { text: "提供商"; color: textSecondary; font.pointSize: 12; Layout.preferredWidth: 80 }
+                                    ComboBox {
+                                        id: providerCombo
+                                        model: ["OpenAI", "Azure", "Ollama (本地)", "自定义"]
+                                        Layout.fillWidth: true; height: 36
+                                        currentIndex: {
+                                            var p = aiClient.provider
+                                            if (p === "openai") return 0
+                                            if (p === "azure") return 1
+                                            if (p === "ollama") return 2
+                                            return 3
+                                        }
+                                        background: Rectangle { color: cardColor; radius: 8; border.color: borderColor; border.width: 1 }
+                                        contentItem: Text { text: providerCombo.currentText; color: textPrimary; verticalAlignment: Text.AlignVCenter; leftPadding: 12 }
+                                        onCurrentIndexChanged: {
+                                            var providers = ["openai", "azure", "ollama", "custom"]
+                                            aiClient.provider = providers[currentIndex]
+                                            if (currentIndex === 0) {
+                                                aiClient.baseUrl = "https://api.openai.com/v1"
+                                                aiClient.model = "gpt-3.5-turbo"
+                                            } else if (currentIndex === 1) {
+                                                aiClient.baseUrl = "https://YOUR_RESOURCE.openai.azure.com"
+                                                aiClient.model = "gpt-35-turbo"
+                                            } else if (currentIndex === 2) {
+                                                aiClient.baseUrl = "http://localhost:11434/api"
+                                                aiClient.model = "llama2"
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                // API Key 输入
+                                RowLayout {
+                                    Layout.fillWidth: true; spacing: 12
+                                    Text { text: "API Key"; color: textSecondary; font.pointSize: 12; Layout.preferredWidth: 80 }
+                                    TextField {
+                                        id: apiKeyField
+                                        Layout.fillWidth: true; height: 36
+                                        text: aiClient.apiKey
+                                        placeholderText: providerCombo.currentIndex === 2 ? "Ollama 不需要 API Key" : "输入你的 API Key..."
+                                        echoMode: TextInput.Password
+                                        color: textPrimary; font.pointSize: 12
+                                        background: Rectangle { color: cardColor; radius: 8; border.color: borderColor; border.width: 1 }
+                                        onTextChanged: aiClient.apiKey = text
+                                    }
+                                    Rectangle {
+                                        width: 36; height: 36; radius: 8
+                                        color: toggleKeyMA.containsMouse ? surfaceColor : cardColor
                                         border.color: borderColor; border.width: 1
-                                        ColumnLayout {
-                                            anchors.centerIn: parent; spacing: 2
-                                            Text { text: modelData.count; color: modelData.color; font.pointSize: 20; font.bold: true }
-                                            Text { text: modelData.label; color: textMuted; font.pointSize: 10 }
+                                        Text { text: apiKeyField.echoMode === TextInput.Password ? "👁️" : "🙈"; anchors.centerIn: parent; font.pointSize: 12 }
+                                        MouseArea {
+                                            id: toggleKeyMA
+                                            anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                            onClicked: apiKeyField.echoMode = apiKeyField.echoMode === TextInput.Password ? TextInput.Normal : TextInput.Password
+                                        }
+                                    }
+                                }
+                                
+                                // 模型选择
+                                RowLayout {
+                                    Layout.fillWidth: true; spacing: 12
+                                    Text { text: "模型"; color: textSecondary; font.pointSize: 12; Layout.preferredWidth: 80 }
+                                    TextField {
+                                        id: modelField
+                                        Layout.fillWidth: true; height: 36
+                                        text: aiClient.model
+                                        placeholderText: "例如: gpt-3.5-turbo, gpt-4, llama2..."
+                                        color: textPrimary; font.pointSize: 12
+                                        background: Rectangle { color: cardColor; radius: 8; border.color: borderColor; border.width: 1 }
+                                        onTextChanged: aiClient.model = text
+                                    }
+                                }
+                                
+                                // Base URL
+                                RowLayout {
+                                    Layout.fillWidth: true; spacing: 12
+                                    Text { text: "API 地址"; color: textSecondary; font.pointSize: 12; Layout.preferredWidth: 80 }
+                                    TextField {
+                                        id: baseUrlField
+                                        Layout.fillWidth: true; height: 36
+                                        text: aiClient.baseUrl
+                                        placeholderText: "API Base URL..."
+                                        color: textPrimary; font.pointSize: 12
+                                        background: Rectangle { color: cardColor; radius: 8; border.color: borderColor; border.width: 1 }
+                                        onTextChanged: aiClient.baseUrl = text
+                                    }
+                                }
+                                
+                                // 高级设置
+                                Rectangle {
+                                    Layout.fillWidth: true; implicitHeight: advancedLayout.implicitHeight + 20
+                                    color: cardColor; radius: 8
+                                    border.color: borderColor; border.width: 1
+                                    ColumnLayout {
+                                        id: advancedLayout
+                                        anchors.fill: parent; anchors.margins: 12; spacing: 10
+                                        Text { text: "⚙️ 高级设置"; color: textMuted; font.pointSize: 11 }
+                                        RowLayout {
+                                            Layout.fillWidth: true; spacing: 16
+                                            ColumnLayout {
+                                                spacing: 4
+                                                Text { text: "Temperature"; color: textSecondary; font.pointSize: 11 }
+                                                SpinBox {
+                                                    id: tempSpinBox
+                                                    from: 0; to: 200; value: aiClient.temperature * 100
+                                                    stepSize: 10
+                                                    editable: true
+                                                    onValueChanged: aiClient.temperature = value / 100
+                                                    textFromValue: function(value) { return (value / 100).toFixed(2) }
+                                                    valueFromText: function(text) { return parseFloat(text) * 100 }
+                                                }
+                                            }
+                                            ColumnLayout {
+                                                spacing: 4
+                                                Text { text: "Max Tokens"; color: textSecondary; font.pointSize: 11 }
+                                                SpinBox {
+                                                    id: maxTokensSpinBox
+                                                    from: 100; to: 4000; value: 1000
+                                                    stepSize: 100
+                                                    editable: true
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                // 按钮行
+                                RowLayout {
+                                    Layout.fillWidth: true; spacing: 12
+                                    Button {
+                                        text: "💾 保存配置"; height: 36; Layout.preferredWidth: 120
+                                        onClicked: {
+                                            aiClient.saveSettings()
+                                            saveSuccessTip.visible = true
+                                            saveTipTimer.start()
+                                        }
+                                        background: Rectangle { color: primaryColor; radius: 8 }
+                                        contentItem: Text { text: parent.text; color: "#FFFFFF"; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pointSize: 12 }
+                                    }
+                                    Button {
+                                        text: "🔄 测试连接"; height: 36; Layout.preferredWidth: 120
+                                        onClicked: {
+                                            testResultText.text = "测试中..."
+                                            aiClient.analyzeIntent("曝光时间")
+                                        }
+                                        background: Rectangle { color: accentColor; radius: 8 }
+                                        contentItem: Text { text: parent.text; color: "#FFFFFF"; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.pointSize: 12 }
+                                    }
+                                    Text {
+                                        id: testResultText
+                                        color: textMuted; font.pointSize: 11
+                                        Layout.fillWidth: true
+                                    }
+                                }
+                                
+                                // 保存成功提示
+                                Rectangle {
+                                    id: saveSuccessTip
+                                    visible: false
+                                    Layout.fillWidth: true; height: 32; radius: 6
+                                    color: "#0d3d2d"
+                                    border.color: "#10B981"; border.width: 1
+                                    Text { text: "✓ 配置已保存"; color: "#10B981"; anchors.centerIn: parent; font.pointSize: 12 }
+                                    Timer { id: saveTipTimer; interval: 2000; onTriggered: saveSuccessTip.visible = false }
+                                }
+                            }
+                            
+                            Connections {
+                                target: aiClient
+                                onIntentAnalyzed: {
+                                    testResultText.text = "✓ 连接成功！意图: " + intent + " (" + Math.round(confidence * 100) + "%)"
+                                    testResultText.color = "#10B981"
+                                }
+                                onErrorOccurred: {
+                                    testResultText.text = "✗ 连接失败: " + error
+                                    testResultText.color = "#EF4444"
+                                }
+                            }
+                        }
+                        
+                        // 统计信息
+                        Rectangle {
+                            color: surfaceColor; radius: 10; Layout.fillWidth: true; implicitHeight: 100
+                            border.color: borderColor; border.width: 1
+                            ColumnLayout {
+                                anchors.fill: parent; anchors.margins: 16; spacing: 12
+                                Text { text: "📊 统计信息"; color: textPrimary; font.pointSize: 14; font.bold: true }
+                                RowLayout {
+                                    Layout.fillWidth: true; spacing: 16
+                                    Repeater {
+                                        model: [
+                                            {count: userDictModel.count, label: "自定义词条", color: primaryLight},
+                                            {count: historyModel.count, label: "搜索历史", color: accentColor},
+                                            {count: hotSearchModel.count, label: "热门搜索", color: warningColor}
+                                        ]
+                                        delegate: Rectangle {
+                                            color: cardColor; radius: 8
+                                            Layout.preferredWidth: 150; Layout.preferredHeight: 50
+                                            border.color: borderColor; border.width: 1
+                                            ColumnLayout {
+                                                anchors.centerIn: parent; spacing: 2
+                                                Text { text: modelData.count; color: modelData.color; font.pointSize: 20; font.bold: true }
+                                                Text { text: modelData.label; color: textMuted; font.pointSize: 10 }
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
-                    }
-                    Item { Layout.fillHeight: true }
-                    Rectangle {
-                        color: cardColor; radius: 8; Layout.fillWidth: true; implicitHeight: 60
-                        border.color: borderColor; border.width: 1
-                        ColumnLayout {
-                            anchors.fill: parent; anchors.margins: 12; spacing: 4
-                            Text { text: "数据文件位置"; color: textMuted; font.pointSize: 10 }
-                            Text {
-                                text: searchVM.getUserDictionaryPath ? searchVM.getUserDictionaryPath() : "未知"
-                                color: textSecondary; font.pointSize: 10; font.family: "monospace"
-                                wrapMode: Text.WrapAnywhere
+                        
+                        // 数据文件位置
+                        Rectangle {
+                            color: cardColor; radius: 8; Layout.fillWidth: true; implicitHeight: 60
+                            border.color: borderColor; border.width: 1
+                            ColumnLayout {
+                                anchors.fill: parent; anchors.margins: 12; spacing: 4
+                                Text { text: "📁 数据文件位置"; color: textMuted; font.pointSize: 10 }
+                                Text {
+                                    text: searchVM.getUserDictionaryPath ? searchVM.getUserDictionaryPath() : "未知"
+                                    color: textSecondary; font.pointSize: 10; font.family: "monospace"
+                                    wrapMode: Text.WrapAnywhere
+                                }
                             }
                         }
                     }

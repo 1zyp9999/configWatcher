@@ -82,6 +82,32 @@ void SearchViewModel::loadConfigFiles(const QStringList& filePaths)
     m_parser->loadConfigFiles(filePaths);
 }
 
+void SearchViewModel::loadConfigFilesAsync(const QStringList& filePaths)
+{
+    setIsLoading(true);
+    setLoadProgress(0);
+    
+    DatabaseManager* db = DatabaseManager::instance();
+    if (db) {
+        connect(db, &DatabaseManager::importProgress, this, [this](int current, int total, const QString& file) {
+            Q_UNUSED(file);
+            setLoadProgress(current * 100 / total);
+        });
+        
+        connect(db, &DatabaseManager::importFinished, this, [this](int successCount, int failCount) {
+            Q_UNUSED(successCount);
+            Q_UNUSED(failCount);
+            setIsLoading(false);
+            buildKeyIndex();
+            updateSearchResults();
+        });
+        
+        db->importFilesAsync(filePaths);
+    } else {
+        loadConfigFiles(filePaths);
+    }
+}
+
 void SearchViewModel::openConfigFile(const QString& filePath)
 {
     QDesktopServices::openUrl(QUrl::fromLocalFile(filePath));
@@ -89,17 +115,20 @@ void SearchViewModel::openConfigFile(const QString& filePath)
 
 void SearchViewModel::updateSearchResults()
 {
-    // Clean up old ConfigEntry objects owned by this ViewModel
     for (QObject* obj : m_searchResults) {
         if (obj && obj->parent() == this) {
-            delete obj;
+            ConfigEntry* entry = qobject_cast<ConfigEntry*>(obj);
+            if (entry) {
+                ConfigEntryPool::instance().release(entry);
+            } else {
+                delete obj;
+            }
         }
     }
     m_searchResults.clear();
 
     qDebug() << "[DEBUG] updateSearchResults called, searchText=" << m_searchText << ", formatFilter=" << m_formatFilter;
 
-    // Prefer database-backed search if DB is initialized
     DatabaseManager* db = DatabaseManager::instance();
     if (db) {
         qDebug() << "[DEBUG] Using database search";
@@ -107,7 +136,6 @@ void SearchViewModel::updateSearchResults()
         qDebug() << "[DEBUG] Database search returned" << list.size() << "results";
         QList<QObject*> objResults;
         for (const QVariant& item : list) {
-            // If DatabaseManager already returned QObject wrapped in QVariant, use it
             if (item.canConvert<QObject*>()) {
                 QObject* obj = item.value<QObject*>();
                 if (obj) {
@@ -116,13 +144,11 @@ void SearchViewModel::updateSearchResults()
                 }
             }
             QVariantMap m = item.toMap();
-            ConfigEntry* e = new ConfigEntry(this);
-            // Fill fields with fallbacks
+            ConfigEntry* e = ConfigEntryPool::instance().acquire(this);
             e->setKey(m.value("key").toString());
             e->setValue(m.value("value").toString());
             e->setChineseKey(m.value("chinese").toString());
             e->setFilePath(m.value("filePath").toString());
-            // optional fields
             if (!m.value("format").toString().isEmpty()) e->setFormat(m.value("format").toString());
             objResults.append(e);
         }
@@ -131,22 +157,18 @@ void SearchViewModel::updateSearchResults()
     }
 
     qDebug() << "[DEBUG] Database instance not available, falling back to parser";
-    // Fallback to in-memory parser search
     QList<ConfigEntry*> results = m_parser->search(m_searchText);
     QList<QObject*> objResults;
 
     for (ConfigEntry* entry : results) {
-        // ensure parent ownership so QML can access
         if (!entry->parent()) entry->setParent(this);
         objResults.append(entry);
     }
 
     setSearchResults(objResults);
 
-    // Save entries into DB if initialized
     if (!m_dbManager) return;
     for (ConfigEntry* e : results) {
-        // Defensive checks
         QString k = e->key();
         QString v = e->value();
         QString fp = e->filePath();
@@ -171,18 +193,89 @@ static int levenshteinDistance(const QString &a, const QString &b)
     int m = b.length();
     if (n == 0) return m;
     if (m == 0) return n;
+    
+    if (n > m) return levenshteinDistance(b, a);
+    
     QVector<int> v0(m+1), v1(m+1);
     for (int j=0;j<=m;j++) v0[j]=j;
+    
+    int minDist = INT_MAX;
     for (int i=1;i<=n;i++) {
         v1[0]=i;
+        int rowMin = i;
         for (int j=1;j<=m;j++) {
             int cost = (a[i-1]==b[j-1])?0:1;
             v1[j] = qMin(qMin(v1[j-1]+1, v0[j]+1), v0[j-1]+cost);
+            rowMin = qMin(rowMin, v1[j]);
         }
+        minDist = qMin(minDist, rowMin + qMin(n-i, m));
         v0 = v1;
     }
     return v1[m];
 }
+
+class BKTree {
+public:
+    struct Node {
+        QString word;
+        QMap<int, Node*> children;
+        Node(const QString& w) : word(w) {}
+        ~Node() { for (auto* c : children) delete c; }
+    };
+    
+    Node* root = nullptr;
+    int maxDistance = 3;
+    
+    ~BKTree() { delete root; }
+    
+    void insert(const QString& word) {
+        if (root == nullptr) {
+            root = new Node(word);
+            return;
+        }
+        Node* cur = root;
+        while (true) {
+            int dist = levenshteinDistance(word, cur->word);
+            if (dist == 0) return;
+            if (!cur->children.contains(dist)) {
+                cur->children[dist] = new Node(word);
+                return;
+            }
+            cur = cur->children[dist];
+        }
+    }
+    
+    void search(const QString& word, int maxDist, QVector<QPair<int, QString>>& results) {
+        if (root == nullptr) return;
+        QList<Node*> stack;
+        stack.append(root);
+        while (!stack.isEmpty()) {
+            Node* node = stack.takeLast();
+            int dist = levenshteinDistance(word, node->word);
+            if (dist <= maxDist) {
+                results.append(qMakePair(dist, node->word));
+            }
+            int low = qMax(1, dist - maxDist);
+            int high = dist + maxDist;
+            for (auto it = node->children.constBegin(); it != node->children.constEnd(); ++it) {
+                if (it.key() >= low && it.key() <= high) {
+                    stack.append(it.value());
+                }
+            }
+        }
+    }
+    
+    void buildFromKeys(const QStringList& keys) {
+        delete root;
+        root = nullptr;
+        for (const QString& k : keys) {
+            insert(k.toLower());
+        }
+    }
+};
+
+static BKTree* g_bkTree = nullptr;
+static bool g_bkTreeBuilt = false;
 
 QStringList SearchViewModel::suggestKeys(const QString &prefix, int maxResults)
 {
@@ -191,7 +284,6 @@ QStringList SearchViewModel::suggestKeys(const QString &prefix, int maxResults)
     if (prefix.trimmed().isEmpty()) return out;
     QString p = prefix.toLower();
 
-    // 1) prefix/substring exact match first
     for (const QString &k : m_allKeys) {
         if (k.toLower().startsWith(p) || k.toLower().contains(p)) {
             out.append(k);
@@ -199,17 +291,33 @@ QStringList SearchViewModel::suggestKeys(const QString &prefix, int maxResults)
         }
     }
 
-    // 2) compute small Levenshtein distance for remaining keys
-    QVector<QPair<int,QString>> scored;
-    for (const QString &k : m_allKeys) {
-        if (out.contains(k)) continue;
-        int d = levenshteinDistance(p, k.toLower());
-        scored.append(qMakePair(d, k));
+    if (!g_bkTreeBuilt || g_bkTree == nullptr) {
+        g_bkTree = new BKTree();
+        g_bkTree->buildFromKeys(m_allKeys);
+        g_bkTreeBuilt = true;
     }
-    std::sort(scored.begin(), scored.end(), [](const QPair<int,QString>& a, const QPair<int,QString>& b){ return a.first < b.first; });
-    for (const auto &pr : scored) {
-        out.append(pr.second);
-        if (out.size() >= maxResults) break;
+
+    QVector<QPair<int, QString>> bkResults;
+    g_bkTree->search(p, 3, bkResults);
+    
+    std::sort(bkResults.begin(), bkResults.end(), [](const QPair<int,QString>& a, const QPair<int,QString>& b){ 
+        return a.first < b.first; 
+    });
+    
+    for (const auto &pr : bkResults) {
+        if (!out.contains(pr.second)) {
+            QString originalKey;
+            for (const QString &k : m_allKeys) {
+                if (k.toLower() == pr.second) {
+                    originalKey = k;
+                    break;
+                }
+            }
+            if (!originalKey.isEmpty()) {
+                out.append(originalKey);
+                if (out.size() >= maxResults) break;
+            }
+        }
     }
     return out;
 }
@@ -220,7 +328,12 @@ QVariantList SearchViewModel::suggestClusters(const QString &prefix, int maxClus
     QVariantList out;
     QString p = prefix.toLower();
 
-    // simple tokenization: split by ., _, - and camelCase boundaries
+    QString cacheKey = QString("%1_%2_%3").arg(p).arg(maxClusters).arg(maxPerCluster);
+    qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (m_tfidfCache.isValid && m_tfidfCache.prefixHash == cacheKey && (now - m_tfidfCache.timestamp) < m_tfidfCacheTtl) {
+        return m_tfidfCache.clusters;
+    }
+
     auto tokenize = [](const QString &s) {
         QString t = s;
         t.replace('_', ' ');
@@ -230,17 +343,15 @@ QVariantList SearchViewModel::suggestClusters(const QString &prefix, int maxClus
         return parts;
     };
 
-    // score keys by whether they match prefix; group by first token
     QMap<QString, QStringList> groups;
     for (const QString &k : m_allKeys) {
         QString kl = k.toLower();
-        if (!p.isEmpty() && !kl.contains(p)) continue; // filter to relevant ones
+        if (!p.isEmpty() && !kl.contains(p)) continue;
         QStringList tokens = tokenize(k.toLower());
         QString g = tokens.isEmpty() ? QStringLiteral("other") : tokens.first();
         groups[g].append(k);
     }
 
-    // If no filtered groups (prefix empty or no match), fallback to grouping all by first token
     if (groups.isEmpty()) {
         for (const QString &k : m_allKeys) {
             QStringList tokens = tokenize(k.toLower());
@@ -249,7 +360,6 @@ QVariantList SearchViewModel::suggestClusters(const QString &prefix, int maxClus
         }
     }
 
-    // sort groups by size descending
     QList<QPair<int,QString>> order;
     for (auto it = groups.constBegin(); it != groups.constEnd(); ++it) {
         order.append(qMakePair(it.value().size(), it.key()));
@@ -263,7 +373,6 @@ QVariantList SearchViewModel::suggestClusters(const QString &prefix, int maxClus
         QVariantMap gm;
         gm["cluster"] = gname;
         QStringList items = groups.value(gname);
-        // limit items per cluster, sort alphabetically
         std::sort(items.begin(), items.end(), [](const QString &a, const QString &b){ return a.toLower() < b.toLower(); });
         QVariantList iv;
         int cnt = 0;
@@ -275,6 +384,11 @@ QVariantList SearchViewModel::suggestClusters(const QString &prefix, int maxClus
         out.append(gm);
         added++;
     }
+
+    m_tfidfCache.prefixHash = cacheKey;
+    m_tfidfCache.timestamp = now;
+    m_tfidfCache.clusters = out;
+    m_tfidfCache.isValid = true;
 
     return out;
 }

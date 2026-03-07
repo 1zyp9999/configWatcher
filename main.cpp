@@ -19,6 +19,11 @@
 #include "loginviewmodel.h"
 #include "searchviewmodel.h"
 #include "globalhotkey.h"
+#include "filewatcher.h"
+#include "configdiff.h"
+#include "batchoperation.h"
+#include "aiclient.h"
+#include "configvalidator.h"
 
 #include <QFile>
 #include <QTextStream>
@@ -70,12 +75,17 @@ int main(int argc, char *argv[])
 
     qmlRegisterType<LoginViewModel>("ConfigWatcher", 1, 0, "LoginViewModel");
     qmlRegisterType<SearchViewModel>("ConfigWatcher", 1, 0, "SearchViewModel");
+    qmlRegisterType<FileWatcher>("ConfigWatcher", 1, 0, "FileWatcher");
+    qmlRegisterType<ConfigDiff>("ConfigWatcher", 1, 0, "ConfigDiff");
+    qmlRegisterType<BatchOperation>("ConfigWatcher", 1, 0, "BatchOperation");
+    qmlRegisterType<AiClient>("ConfigWatcher", 1, 0, "AiClient");
+    qmlRegisterType<ConfigValidator>("ConfigWatcher", 1, 0, "ConfigValidator");
 
     QQmlApplicationEngine engine;
 
     QString buildTime = QFileInfo(QCoreApplication::applicationFilePath()).lastModified().toString(Qt::DefaultLocaleLongDate);
     engine.rootContext()->setContextProperty("APP_BUILD_TIME", buildTime);
-    engine.rootContext()->setContextProperty("APP_VERSION", "v1.3.0");
+    engine.rootContext()->setContextProperty("APP_VERSION", "v2.0.0");
     engine.rootContext()->setContextProperty("APP_NAME", "ConfigWatcher");
     engine.rootContext()->setContextProperty("APP_AUTHOR", "张宇鹏");
 

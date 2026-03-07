@@ -37,7 +37,7 @@ MOVE          = mv -f
 TAR           = tar -cf
 COMPRESS      = gzip -9f
 DISTNAME      = ConfigWatcher1.0.0
-DISTDIR = /home/jack/ConfigWatcher/obj/ConfigWatcher1.0.0
+DISTDIR = /home/jack/configWatcher-master/obj/ConfigWatcher1.0.0
 LINK          = g++
 LFLAGS        = -Wl,-O1 -Wl,-rpath-link,/usr/lib/x86_64-linux-gnu
 LIBS          = $(SUBLIBS) -lX11 -lxcb /usr/lib/x86_64-linux-gnu/libQt5QuickControls2.so /usr/lib/x86_64-linux-gnu/libQt5Quick.so /usr/lib/x86_64-linux-gnu/libQt5Widgets.so /usr/lib/x86_64-linux-gnu/libQt5Gui.so /usr/lib/x86_64-linux-gnu/libQt5QmlModels.so /usr/lib/x86_64-linux-gnu/libQt5Qml.so /usr/lib/x86_64-linux-gnu/libQt5Network.so /usr/lib/x86_64-linux-gnu/libQt5Concurrent.so /usr/lib/x86_64-linux-gnu/libQt5Sql.so /usr/lib/x86_64-linux-gnu/libQt5Core.so -lGL -lpthread   
@@ -58,14 +58,24 @@ SOURCES       = main.cpp \
 		src/viewmodel/searchviewmodel.cpp \
 		src/viewmodel/databasemanager.cpp \
 		src/aiservice.cpp \
-		src/globalhotkey.cpp rcc/qrc_qml.cpp \
+		src/globalhotkey.cpp \
+		src/filewatcher.cpp \
+		src/configdiff.cpp \
+		src/batchoperation.cpp \
+		src/aiclient.cpp \
+		src/configvalidator.cpp rcc/qrc_qml.cpp \
 		moc/moc_configentry.cpp \
 		moc/moc_configparser.cpp \
 		moc/moc_loginviewmodel.cpp \
 		moc/moc_searchviewmodel.cpp \
 		moc/moc_databasemanager.cpp \
 		moc/moc_aiservice.cpp \
-		moc/moc_globalhotkey.cpp
+		moc/moc_globalhotkey.cpp \
+		moc/moc_filewatcher.cpp \
+		moc/moc_configdiff.cpp \
+		moc/moc_batchoperation.cpp \
+		moc/moc_aiclient.cpp \
+		moc/moc_configvalidator.cpp
 OBJECTS       = obj/main.o \
 		obj/configparser.o \
 		obj/loginviewmodel.o \
@@ -73,6 +83,11 @@ OBJECTS       = obj/main.o \
 		obj/databasemanager.o \
 		obj/aiservice.o \
 		obj/globalhotkey.o \
+		obj/filewatcher.o \
+		obj/configdiff.o \
+		obj/batchoperation.o \
+		obj/aiclient.o \
+		obj/configvalidator.o \
 		obj/qrc_qml.o \
 		obj/moc_configentry.o \
 		obj/moc_configparser.o \
@@ -80,7 +95,12 @@ OBJECTS       = obj/main.o \
 		obj/moc_searchviewmodel.o \
 		obj/moc_databasemanager.o \
 		obj/moc_aiservice.o \
-		obj/moc_globalhotkey.o
+		obj/moc_globalhotkey.o \
+		obj/moc_filewatcher.o \
+		obj/moc_configdiff.o \
+		obj/moc_batchoperation.o \
+		obj/moc_aiclient.o \
+		obj/moc_configvalidator.o
 DIST          = /usr/lib/x86_64-linux-gnu/qt5/mkspecs/features/spec_pre.prf \
 		/usr/lib/x86_64-linux-gnu/qt5/mkspecs/common/unix.conf \
 		/usr/lib/x86_64-linux-gnu/qt5/mkspecs/common/linux.conf \
@@ -175,13 +195,23 @@ DIST          = /usr/lib/x86_64-linux-gnu/qt5/mkspecs/features/spec_pre.prf \
 		include/searchviewmodel.h \
 		include/databasemanager.h \
 		include/aiservice.h \
-		include/globalhotkey.h main.cpp \
+		include/globalhotkey.h \
+		include/filewatcher.h \
+		include/configdiff.h \
+		include/batchoperation.h \
+		include/aiclient.h \
+		include/configvalidator.h main.cpp \
 		src/model/configparser.cpp \
 		src/viewmodel/loginviewmodel.cpp \
 		src/viewmodel/searchviewmodel.cpp \
 		src/viewmodel/databasemanager.cpp \
 		src/aiservice.cpp \
-		src/globalhotkey.cpp
+		src/globalhotkey.cpp \
+		src/filewatcher.cpp \
+		src/configdiff.cpp \
+		src/batchoperation.cpp \
+		src/aiclient.cpp \
+		src/configvalidator.cpp
 QMAKE_TARGET  = ConfigWatcher
 DESTDIR       = bin/
 TARGET        = bin/ConfigWatcher
@@ -391,8 +421,8 @@ distdir: FORCE
 	$(COPY_FILE) --parents $(DIST) $(DISTDIR)/
 	$(COPY_FILE) --parents res/qml.qrc $(DISTDIR)/
 	$(COPY_FILE) --parents /usr/lib/x86_64-linux-gnu/qt5/mkspecs/features/data/dummy.cpp $(DISTDIR)/
-	$(COPY_FILE) --parents include/configentry.h src/model/configparser.h src/viewmodel/loginviewmodel.h include/searchviewmodel.h include/databasemanager.h include/aiservice.h include/globalhotkey.h $(DISTDIR)/
-	$(COPY_FILE) --parents main.cpp src/model/configparser.cpp src/viewmodel/loginviewmodel.cpp src/viewmodel/searchviewmodel.cpp src/viewmodel/databasemanager.cpp src/aiservice.cpp src/globalhotkey.cpp $(DISTDIR)/
+	$(COPY_FILE) --parents include/configentry.h src/model/configparser.h src/viewmodel/loginviewmodel.h include/searchviewmodel.h include/databasemanager.h include/aiservice.h include/globalhotkey.h include/filewatcher.h include/configdiff.h include/batchoperation.h include/aiclient.h include/configvalidator.h $(DISTDIR)/
+	$(COPY_FILE) --parents main.cpp src/model/configparser.cpp src/viewmodel/loginviewmodel.cpp src/viewmodel/searchviewmodel.cpp src/viewmodel/databasemanager.cpp src/aiservice.cpp src/globalhotkey.cpp src/filewatcher.cpp src/configdiff.cpp src/batchoperation.cpp src/aiclient.cpp src/configvalidator.cpp $(DISTDIR)/
 
 
 clean: compiler_clean 
@@ -434,24 +464,24 @@ compiler_moc_predefs_clean:
 moc/moc_predefs.h: /usr/lib/x86_64-linux-gnu/qt5/mkspecs/features/data/dummy.cpp
 	g++ -pipe -O2 -std=gnu++11 -Wall -Wextra -dM -E -o moc/moc_predefs.h /usr/lib/x86_64-linux-gnu/qt5/mkspecs/features/data/dummy.cpp
 
-compiler_moc_header_make_all: moc/moc_configentry.cpp moc/moc_configparser.cpp moc/moc_loginviewmodel.cpp moc/moc_searchviewmodel.cpp moc/moc_databasemanager.cpp moc/moc_aiservice.cpp moc/moc_globalhotkey.cpp
+compiler_moc_header_make_all: moc/moc_configentry.cpp moc/moc_configparser.cpp moc/moc_loginviewmodel.cpp moc/moc_searchviewmodel.cpp moc/moc_databasemanager.cpp moc/moc_aiservice.cpp moc/moc_globalhotkey.cpp moc/moc_filewatcher.cpp moc/moc_configdiff.cpp moc/moc_batchoperation.cpp moc/moc_aiclient.cpp moc/moc_configvalidator.cpp
 compiler_moc_header_clean:
-	-$(DEL_FILE) moc/moc_configentry.cpp moc/moc_configparser.cpp moc/moc_loginviewmodel.cpp moc/moc_searchviewmodel.cpp moc/moc_databasemanager.cpp moc/moc_aiservice.cpp moc/moc_globalhotkey.cpp
+	-$(DEL_FILE) moc/moc_configentry.cpp moc/moc_configparser.cpp moc/moc_loginviewmodel.cpp moc/moc_searchviewmodel.cpp moc/moc_databasemanager.cpp moc/moc_aiservice.cpp moc/moc_globalhotkey.cpp moc/moc_filewatcher.cpp moc/moc_configdiff.cpp moc/moc_batchoperation.cpp moc/moc_aiclient.cpp moc/moc_configvalidator.cpp
 moc/moc_configentry.cpp: include/configentry.h \
 		moc/moc_predefs.h \
 		/usr/lib/qt5/bin/moc
-	/usr/lib/qt5/bin/moc $(DEFINES) --include /home/jack/ConfigWatcher/moc/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++ -I/home/jack/ConfigWatcher -I/home/jack/ConfigWatcher/include -I/home/jack/ConfigWatcher/src/model -I/home/jack/ConfigWatcher/src/viewmodel -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtQuickControls2 -I/usr/include/x86_64-linux-gnu/qt5/QtQuick -I/usr/include/x86_64-linux-gnu/qt5/QtWidgets -I/usr/include/x86_64-linux-gnu/qt5/QtGui -I/usr/include/x86_64-linux-gnu/qt5/QtQmlModels -I/usr/include/x86_64-linux-gnu/qt5/QtQml -I/usr/include/x86_64-linux-gnu/qt5/QtNetwork -I/usr/include/x86_64-linux-gnu/qt5/QtConcurrent -I/usr/include/x86_64-linux-gnu/qt5/QtSql -I/usr/include/x86_64-linux-gnu/qt5/QtCore -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include include/configentry.h -o moc/moc_configentry.cpp
+	/usr/lib/qt5/bin/moc $(DEFINES) --include /home/jack/configWatcher-master/moc/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++ -I/home/jack/configWatcher-master -I/home/jack/configWatcher-master/include -I/home/jack/configWatcher-master/src/model -I/home/jack/configWatcher-master/src/viewmodel -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtQuickControls2 -I/usr/include/x86_64-linux-gnu/qt5/QtQuick -I/usr/include/x86_64-linux-gnu/qt5/QtWidgets -I/usr/include/x86_64-linux-gnu/qt5/QtGui -I/usr/include/x86_64-linux-gnu/qt5/QtQmlModels -I/usr/include/x86_64-linux-gnu/qt5/QtQml -I/usr/include/x86_64-linux-gnu/qt5/QtNetwork -I/usr/include/x86_64-linux-gnu/qt5/QtConcurrent -I/usr/include/x86_64-linux-gnu/qt5/QtSql -I/usr/include/x86_64-linux-gnu/qt5/QtCore -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include include/configentry.h -o moc/moc_configentry.cpp
 
 moc/moc_configparser.cpp: src/model/configparser.h \
 		include/configentry.h \
 		moc/moc_predefs.h \
 		/usr/lib/qt5/bin/moc
-	/usr/lib/qt5/bin/moc $(DEFINES) --include /home/jack/ConfigWatcher/moc/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++ -I/home/jack/ConfigWatcher -I/home/jack/ConfigWatcher/include -I/home/jack/ConfigWatcher/src/model -I/home/jack/ConfigWatcher/src/viewmodel -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtQuickControls2 -I/usr/include/x86_64-linux-gnu/qt5/QtQuick -I/usr/include/x86_64-linux-gnu/qt5/QtWidgets -I/usr/include/x86_64-linux-gnu/qt5/QtGui -I/usr/include/x86_64-linux-gnu/qt5/QtQmlModels -I/usr/include/x86_64-linux-gnu/qt5/QtQml -I/usr/include/x86_64-linux-gnu/qt5/QtNetwork -I/usr/include/x86_64-linux-gnu/qt5/QtConcurrent -I/usr/include/x86_64-linux-gnu/qt5/QtSql -I/usr/include/x86_64-linux-gnu/qt5/QtCore -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include src/model/configparser.h -o moc/moc_configparser.cpp
+	/usr/lib/qt5/bin/moc $(DEFINES) --include /home/jack/configWatcher-master/moc/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++ -I/home/jack/configWatcher-master -I/home/jack/configWatcher-master/include -I/home/jack/configWatcher-master/src/model -I/home/jack/configWatcher-master/src/viewmodel -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtQuickControls2 -I/usr/include/x86_64-linux-gnu/qt5/QtQuick -I/usr/include/x86_64-linux-gnu/qt5/QtWidgets -I/usr/include/x86_64-linux-gnu/qt5/QtGui -I/usr/include/x86_64-linux-gnu/qt5/QtQmlModels -I/usr/include/x86_64-linux-gnu/qt5/QtQml -I/usr/include/x86_64-linux-gnu/qt5/QtNetwork -I/usr/include/x86_64-linux-gnu/qt5/QtConcurrent -I/usr/include/x86_64-linux-gnu/qt5/QtSql -I/usr/include/x86_64-linux-gnu/qt5/QtCore -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include src/model/configparser.h -o moc/moc_configparser.cpp
 
 moc/moc_loginviewmodel.cpp: src/viewmodel/loginviewmodel.h \
 		moc/moc_predefs.h \
 		/usr/lib/qt5/bin/moc
-	/usr/lib/qt5/bin/moc $(DEFINES) --include /home/jack/ConfigWatcher/moc/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++ -I/home/jack/ConfigWatcher -I/home/jack/ConfigWatcher/include -I/home/jack/ConfigWatcher/src/model -I/home/jack/ConfigWatcher/src/viewmodel -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtQuickControls2 -I/usr/include/x86_64-linux-gnu/qt5/QtQuick -I/usr/include/x86_64-linux-gnu/qt5/QtWidgets -I/usr/include/x86_64-linux-gnu/qt5/QtGui -I/usr/include/x86_64-linux-gnu/qt5/QtQmlModels -I/usr/include/x86_64-linux-gnu/qt5/QtQml -I/usr/include/x86_64-linux-gnu/qt5/QtNetwork -I/usr/include/x86_64-linux-gnu/qt5/QtConcurrent -I/usr/include/x86_64-linux-gnu/qt5/QtSql -I/usr/include/x86_64-linux-gnu/qt5/QtCore -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include src/viewmodel/loginviewmodel.h -o moc/moc_loginviewmodel.cpp
+	/usr/lib/qt5/bin/moc $(DEFINES) --include /home/jack/configWatcher-master/moc/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++ -I/home/jack/configWatcher-master -I/home/jack/configWatcher-master/include -I/home/jack/configWatcher-master/src/model -I/home/jack/configWatcher-master/src/viewmodel -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtQuickControls2 -I/usr/include/x86_64-linux-gnu/qt5/QtQuick -I/usr/include/x86_64-linux-gnu/qt5/QtWidgets -I/usr/include/x86_64-linux-gnu/qt5/QtGui -I/usr/include/x86_64-linux-gnu/qt5/QtQmlModels -I/usr/include/x86_64-linux-gnu/qt5/QtQml -I/usr/include/x86_64-linux-gnu/qt5/QtNetwork -I/usr/include/x86_64-linux-gnu/qt5/QtConcurrent -I/usr/include/x86_64-linux-gnu/qt5/QtSql -I/usr/include/x86_64-linux-gnu/qt5/QtCore -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include src/viewmodel/loginviewmodel.h -o moc/moc_loginviewmodel.cpp
 
 moc/moc_searchviewmodel.cpp: include/searchviewmodel.h \
 		src/model/configparser.h \
@@ -460,22 +490,47 @@ moc/moc_searchviewmodel.cpp: include/searchviewmodel.h \
 		include/aiservice.h \
 		moc/moc_predefs.h \
 		/usr/lib/qt5/bin/moc
-	/usr/lib/qt5/bin/moc $(DEFINES) --include /home/jack/ConfigWatcher/moc/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++ -I/home/jack/ConfigWatcher -I/home/jack/ConfigWatcher/include -I/home/jack/ConfigWatcher/src/model -I/home/jack/ConfigWatcher/src/viewmodel -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtQuickControls2 -I/usr/include/x86_64-linux-gnu/qt5/QtQuick -I/usr/include/x86_64-linux-gnu/qt5/QtWidgets -I/usr/include/x86_64-linux-gnu/qt5/QtGui -I/usr/include/x86_64-linux-gnu/qt5/QtQmlModels -I/usr/include/x86_64-linux-gnu/qt5/QtQml -I/usr/include/x86_64-linux-gnu/qt5/QtNetwork -I/usr/include/x86_64-linux-gnu/qt5/QtConcurrent -I/usr/include/x86_64-linux-gnu/qt5/QtSql -I/usr/include/x86_64-linux-gnu/qt5/QtCore -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include include/searchviewmodel.h -o moc/moc_searchviewmodel.cpp
+	/usr/lib/qt5/bin/moc $(DEFINES) --include /home/jack/configWatcher-master/moc/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++ -I/home/jack/configWatcher-master -I/home/jack/configWatcher-master/include -I/home/jack/configWatcher-master/src/model -I/home/jack/configWatcher-master/src/viewmodel -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtQuickControls2 -I/usr/include/x86_64-linux-gnu/qt5/QtQuick -I/usr/include/x86_64-linux-gnu/qt5/QtWidgets -I/usr/include/x86_64-linux-gnu/qt5/QtGui -I/usr/include/x86_64-linux-gnu/qt5/QtQmlModels -I/usr/include/x86_64-linux-gnu/qt5/QtQml -I/usr/include/x86_64-linux-gnu/qt5/QtNetwork -I/usr/include/x86_64-linux-gnu/qt5/QtConcurrent -I/usr/include/x86_64-linux-gnu/qt5/QtSql -I/usr/include/x86_64-linux-gnu/qt5/QtCore -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include include/searchviewmodel.h -o moc/moc_searchviewmodel.cpp
 
 moc/moc_databasemanager.cpp: include/databasemanager.h \
 		moc/moc_predefs.h \
 		/usr/lib/qt5/bin/moc
-	/usr/lib/qt5/bin/moc $(DEFINES) --include /home/jack/ConfigWatcher/moc/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++ -I/home/jack/ConfigWatcher -I/home/jack/ConfigWatcher/include -I/home/jack/ConfigWatcher/src/model -I/home/jack/ConfigWatcher/src/viewmodel -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtQuickControls2 -I/usr/include/x86_64-linux-gnu/qt5/QtQuick -I/usr/include/x86_64-linux-gnu/qt5/QtWidgets -I/usr/include/x86_64-linux-gnu/qt5/QtGui -I/usr/include/x86_64-linux-gnu/qt5/QtQmlModels -I/usr/include/x86_64-linux-gnu/qt5/QtQml -I/usr/include/x86_64-linux-gnu/qt5/QtNetwork -I/usr/include/x86_64-linux-gnu/qt5/QtConcurrent -I/usr/include/x86_64-linux-gnu/qt5/QtSql -I/usr/include/x86_64-linux-gnu/qt5/QtCore -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include include/databasemanager.h -o moc/moc_databasemanager.cpp
+	/usr/lib/qt5/bin/moc $(DEFINES) --include /home/jack/configWatcher-master/moc/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++ -I/home/jack/configWatcher-master -I/home/jack/configWatcher-master/include -I/home/jack/configWatcher-master/src/model -I/home/jack/configWatcher-master/src/viewmodel -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtQuickControls2 -I/usr/include/x86_64-linux-gnu/qt5/QtQuick -I/usr/include/x86_64-linux-gnu/qt5/QtWidgets -I/usr/include/x86_64-linux-gnu/qt5/QtGui -I/usr/include/x86_64-linux-gnu/qt5/QtQmlModels -I/usr/include/x86_64-linux-gnu/qt5/QtQml -I/usr/include/x86_64-linux-gnu/qt5/QtNetwork -I/usr/include/x86_64-linux-gnu/qt5/QtConcurrent -I/usr/include/x86_64-linux-gnu/qt5/QtSql -I/usr/include/x86_64-linux-gnu/qt5/QtCore -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include include/databasemanager.h -o moc/moc_databasemanager.cpp
 
 moc/moc_aiservice.cpp: include/aiservice.h \
 		moc/moc_predefs.h \
 		/usr/lib/qt5/bin/moc
-	/usr/lib/qt5/bin/moc $(DEFINES) --include /home/jack/ConfigWatcher/moc/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++ -I/home/jack/ConfigWatcher -I/home/jack/ConfigWatcher/include -I/home/jack/ConfigWatcher/src/model -I/home/jack/ConfigWatcher/src/viewmodel -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtQuickControls2 -I/usr/include/x86_64-linux-gnu/qt5/QtQuick -I/usr/include/x86_64-linux-gnu/qt5/QtWidgets -I/usr/include/x86_64-linux-gnu/qt5/QtGui -I/usr/include/x86_64-linux-gnu/qt5/QtQmlModels -I/usr/include/x86_64-linux-gnu/qt5/QtQml -I/usr/include/x86_64-linux-gnu/qt5/QtNetwork -I/usr/include/x86_64-linux-gnu/qt5/QtConcurrent -I/usr/include/x86_64-linux-gnu/qt5/QtSql -I/usr/include/x86_64-linux-gnu/qt5/QtCore -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include include/aiservice.h -o moc/moc_aiservice.cpp
+	/usr/lib/qt5/bin/moc $(DEFINES) --include /home/jack/configWatcher-master/moc/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++ -I/home/jack/configWatcher-master -I/home/jack/configWatcher-master/include -I/home/jack/configWatcher-master/src/model -I/home/jack/configWatcher-master/src/viewmodel -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtQuickControls2 -I/usr/include/x86_64-linux-gnu/qt5/QtQuick -I/usr/include/x86_64-linux-gnu/qt5/QtWidgets -I/usr/include/x86_64-linux-gnu/qt5/QtGui -I/usr/include/x86_64-linux-gnu/qt5/QtQmlModels -I/usr/include/x86_64-linux-gnu/qt5/QtQml -I/usr/include/x86_64-linux-gnu/qt5/QtNetwork -I/usr/include/x86_64-linux-gnu/qt5/QtConcurrent -I/usr/include/x86_64-linux-gnu/qt5/QtSql -I/usr/include/x86_64-linux-gnu/qt5/QtCore -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include include/aiservice.h -o moc/moc_aiservice.cpp
 
 moc/moc_globalhotkey.cpp: include/globalhotkey.h \
 		moc/moc_predefs.h \
 		/usr/lib/qt5/bin/moc
-	/usr/lib/qt5/bin/moc $(DEFINES) --include /home/jack/ConfigWatcher/moc/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++ -I/home/jack/ConfigWatcher -I/home/jack/ConfigWatcher/include -I/home/jack/ConfigWatcher/src/model -I/home/jack/ConfigWatcher/src/viewmodel -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtQuickControls2 -I/usr/include/x86_64-linux-gnu/qt5/QtQuick -I/usr/include/x86_64-linux-gnu/qt5/QtWidgets -I/usr/include/x86_64-linux-gnu/qt5/QtGui -I/usr/include/x86_64-linux-gnu/qt5/QtQmlModels -I/usr/include/x86_64-linux-gnu/qt5/QtQml -I/usr/include/x86_64-linux-gnu/qt5/QtNetwork -I/usr/include/x86_64-linux-gnu/qt5/QtConcurrent -I/usr/include/x86_64-linux-gnu/qt5/QtSql -I/usr/include/x86_64-linux-gnu/qt5/QtCore -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include include/globalhotkey.h -o moc/moc_globalhotkey.cpp
+	/usr/lib/qt5/bin/moc $(DEFINES) --include /home/jack/configWatcher-master/moc/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++ -I/home/jack/configWatcher-master -I/home/jack/configWatcher-master/include -I/home/jack/configWatcher-master/src/model -I/home/jack/configWatcher-master/src/viewmodel -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtQuickControls2 -I/usr/include/x86_64-linux-gnu/qt5/QtQuick -I/usr/include/x86_64-linux-gnu/qt5/QtWidgets -I/usr/include/x86_64-linux-gnu/qt5/QtGui -I/usr/include/x86_64-linux-gnu/qt5/QtQmlModels -I/usr/include/x86_64-linux-gnu/qt5/QtQml -I/usr/include/x86_64-linux-gnu/qt5/QtNetwork -I/usr/include/x86_64-linux-gnu/qt5/QtConcurrent -I/usr/include/x86_64-linux-gnu/qt5/QtSql -I/usr/include/x86_64-linux-gnu/qt5/QtCore -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include include/globalhotkey.h -o moc/moc_globalhotkey.cpp
+
+moc/moc_filewatcher.cpp: include/filewatcher.h \
+		moc/moc_predefs.h \
+		/usr/lib/qt5/bin/moc
+	/usr/lib/qt5/bin/moc $(DEFINES) --include /home/jack/configWatcher-master/moc/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++ -I/home/jack/configWatcher-master -I/home/jack/configWatcher-master/include -I/home/jack/configWatcher-master/src/model -I/home/jack/configWatcher-master/src/viewmodel -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtQuickControls2 -I/usr/include/x86_64-linux-gnu/qt5/QtQuick -I/usr/include/x86_64-linux-gnu/qt5/QtWidgets -I/usr/include/x86_64-linux-gnu/qt5/QtGui -I/usr/include/x86_64-linux-gnu/qt5/QtQmlModels -I/usr/include/x86_64-linux-gnu/qt5/QtQml -I/usr/include/x86_64-linux-gnu/qt5/QtNetwork -I/usr/include/x86_64-linux-gnu/qt5/QtConcurrent -I/usr/include/x86_64-linux-gnu/qt5/QtSql -I/usr/include/x86_64-linux-gnu/qt5/QtCore -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include include/filewatcher.h -o moc/moc_filewatcher.cpp
+
+moc/moc_configdiff.cpp: include/configdiff.h \
+		moc/moc_predefs.h \
+		/usr/lib/qt5/bin/moc
+	/usr/lib/qt5/bin/moc $(DEFINES) --include /home/jack/configWatcher-master/moc/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++ -I/home/jack/configWatcher-master -I/home/jack/configWatcher-master/include -I/home/jack/configWatcher-master/src/model -I/home/jack/configWatcher-master/src/viewmodel -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtQuickControls2 -I/usr/include/x86_64-linux-gnu/qt5/QtQuick -I/usr/include/x86_64-linux-gnu/qt5/QtWidgets -I/usr/include/x86_64-linux-gnu/qt5/QtGui -I/usr/include/x86_64-linux-gnu/qt5/QtQmlModels -I/usr/include/x86_64-linux-gnu/qt5/QtQml -I/usr/include/x86_64-linux-gnu/qt5/QtNetwork -I/usr/include/x86_64-linux-gnu/qt5/QtConcurrent -I/usr/include/x86_64-linux-gnu/qt5/QtSql -I/usr/include/x86_64-linux-gnu/qt5/QtCore -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include include/configdiff.h -o moc/moc_configdiff.cpp
+
+moc/moc_batchoperation.cpp: include/batchoperation.h \
+		moc/moc_predefs.h \
+		/usr/lib/qt5/bin/moc
+	/usr/lib/qt5/bin/moc $(DEFINES) --include /home/jack/configWatcher-master/moc/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++ -I/home/jack/configWatcher-master -I/home/jack/configWatcher-master/include -I/home/jack/configWatcher-master/src/model -I/home/jack/configWatcher-master/src/viewmodel -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtQuickControls2 -I/usr/include/x86_64-linux-gnu/qt5/QtQuick -I/usr/include/x86_64-linux-gnu/qt5/QtWidgets -I/usr/include/x86_64-linux-gnu/qt5/QtGui -I/usr/include/x86_64-linux-gnu/qt5/QtQmlModels -I/usr/include/x86_64-linux-gnu/qt5/QtQml -I/usr/include/x86_64-linux-gnu/qt5/QtNetwork -I/usr/include/x86_64-linux-gnu/qt5/QtConcurrent -I/usr/include/x86_64-linux-gnu/qt5/QtSql -I/usr/include/x86_64-linux-gnu/qt5/QtCore -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include include/batchoperation.h -o moc/moc_batchoperation.cpp
+
+moc/moc_aiclient.cpp: include/aiclient.h \
+		moc/moc_predefs.h \
+		/usr/lib/qt5/bin/moc
+	/usr/lib/qt5/bin/moc $(DEFINES) --include /home/jack/configWatcher-master/moc/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++ -I/home/jack/configWatcher-master -I/home/jack/configWatcher-master/include -I/home/jack/configWatcher-master/src/model -I/home/jack/configWatcher-master/src/viewmodel -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtQuickControls2 -I/usr/include/x86_64-linux-gnu/qt5/QtQuick -I/usr/include/x86_64-linux-gnu/qt5/QtWidgets -I/usr/include/x86_64-linux-gnu/qt5/QtGui -I/usr/include/x86_64-linux-gnu/qt5/QtQmlModels -I/usr/include/x86_64-linux-gnu/qt5/QtQml -I/usr/include/x86_64-linux-gnu/qt5/QtNetwork -I/usr/include/x86_64-linux-gnu/qt5/QtConcurrent -I/usr/include/x86_64-linux-gnu/qt5/QtSql -I/usr/include/x86_64-linux-gnu/qt5/QtCore -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include include/aiclient.h -o moc/moc_aiclient.cpp
+
+moc/moc_configvalidator.cpp: include/configvalidator.h \
+		moc/moc_predefs.h \
+		/usr/lib/qt5/bin/moc
+	/usr/lib/qt5/bin/moc $(DEFINES) --include /home/jack/configWatcher-master/moc/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt5/mkspecs/linux-g++ -I/home/jack/configWatcher-master -I/home/jack/configWatcher-master/include -I/home/jack/configWatcher-master/src/model -I/home/jack/configWatcher-master/src/viewmodel -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtQuickControls2 -I/usr/include/x86_64-linux-gnu/qt5/QtQuick -I/usr/include/x86_64-linux-gnu/qt5/QtWidgets -I/usr/include/x86_64-linux-gnu/qt5/QtGui -I/usr/include/x86_64-linux-gnu/qt5/QtQmlModels -I/usr/include/x86_64-linux-gnu/qt5/QtQml -I/usr/include/x86_64-linux-gnu/qt5/QtNetwork -I/usr/include/x86_64-linux-gnu/qt5/QtConcurrent -I/usr/include/x86_64-linux-gnu/qt5/QtSql -I/usr/include/x86_64-linux-gnu/qt5/QtCore -I/usr/include/c++/11 -I/usr/include/x86_64-linux-gnu/c++/11 -I/usr/include/c++/11/backward -I/usr/lib/gcc/x86_64-linux-gnu/11/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include include/configvalidator.h -o moc/moc_configvalidator.cpp
 
 compiler_moc_objc_header_make_all:
 compiler_moc_objc_header_clean:
@@ -499,7 +554,12 @@ obj/main.o: main.cpp include/databasemanager.h \
 		src/model/configparser.h \
 		include/configentry.h \
 		include/aiservice.h \
-		include/globalhotkey.h
+		include/globalhotkey.h \
+		include/filewatcher.h \
+		include/configdiff.h \
+		include/batchoperation.h \
+		include/aiclient.h \
+		include/configvalidator.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/main.o main.cpp
 
 obj/configparser.o: src/model/configparser.cpp src/model/configparser.h \
@@ -525,6 +585,23 @@ obj/aiservice.o: src/aiservice.cpp include/aiservice.h
 obj/globalhotkey.o: src/globalhotkey.cpp include/globalhotkey.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/globalhotkey.o src/globalhotkey.cpp
 
+obj/filewatcher.o: src/filewatcher.cpp include/filewatcher.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/filewatcher.o src/filewatcher.cpp
+
+obj/configdiff.o: src/configdiff.cpp include/configdiff.h \
+		include/databasemanager.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/configdiff.o src/configdiff.cpp
+
+obj/batchoperation.o: src/batchoperation.cpp include/batchoperation.h \
+		include/databasemanager.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/batchoperation.o src/batchoperation.cpp
+
+obj/aiclient.o: src/aiclient.cpp include/aiclient.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/aiclient.o src/aiclient.cpp
+
+obj/configvalidator.o: src/configvalidator.cpp include/configvalidator.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/configvalidator.o src/configvalidator.cpp
+
 obj/qrc_qml.o: rcc/qrc_qml.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/qrc_qml.o rcc/qrc_qml.cpp
 
@@ -548,6 +625,21 @@ obj/moc_aiservice.o: moc/moc_aiservice.cpp
 
 obj/moc_globalhotkey.o: moc/moc_globalhotkey.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/moc_globalhotkey.o moc/moc_globalhotkey.cpp
+
+obj/moc_filewatcher.o: moc/moc_filewatcher.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/moc_filewatcher.o moc/moc_filewatcher.cpp
+
+obj/moc_configdiff.o: moc/moc_configdiff.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/moc_configdiff.o moc/moc_configdiff.cpp
+
+obj/moc_batchoperation.o: moc/moc_batchoperation.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/moc_batchoperation.o moc/moc_batchoperation.cpp
+
+obj/moc_aiclient.o: moc/moc_aiclient.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/moc_aiclient.o moc/moc_aiclient.cpp
+
+obj/moc_configvalidator.o: moc/moc_configvalidator.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/moc_configvalidator.o moc/moc_configvalidator.cpp
 
 ####### Install
 

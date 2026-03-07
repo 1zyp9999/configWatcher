@@ -13,6 +13,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QXmlStreamReader>
+#include <QtConcurrent>
 
 DatabaseManager* DatabaseManager::s_instance = nullptr;
 
@@ -23,6 +24,38 @@ DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent)
 DatabaseManager::~DatabaseManager()
 {
     closeDatabase();
+}
+
+void DatabaseManager::invalidateCache()
+{
+    m_queryCache.clear();
+}
+
+QString DatabaseManager::makeCacheKey(const QString& query, int mode, const QString& formatFilter)
+{
+    return QString("%1|%2|%3").arg(query).arg(mode).arg(formatFilter);
+}
+
+bool DatabaseManager::isCacheValid(const QueryCache& cache)
+{
+    qint64 now = QDateTime::currentMSecsSinceEpoch();
+    return (now - cache.timestamp) < m_cacheTtl;
+}
+
+void DatabaseManager::cleanOldCache()
+{
+    if (m_queryCache.size() <= m_maxCacheSize) return;
+    
+    QList<QPair<qint64, QString>> items;
+    for (auto it = m_queryCache.constBegin(); it != m_queryCache.constEnd(); ++it) {
+        items.append(qMakePair(it.value().timestamp, it.key()));
+    }
+    std::sort(items.begin(), items.end());
+    
+    int toRemove = m_queryCache.size() - m_maxCacheSize;
+    for (int i = 0; i < toRemove && i < items.size(); ++i) {
+        m_queryCache.remove(items[i].second);
+    }
 }
 
 bool DatabaseManager::openDatabase(const QString& path, const QString& connectionName, bool setAsGlobalInstance)
@@ -575,11 +608,15 @@ QVariantList DatabaseManager::searchParameters(const QString& query, int mode, c
         return out;
     }
     
+    QString cacheKey = makeCacheKey(query, mode, formatFilter);
+    if (m_queryCache.contains(cacheKey) && isCacheValid(m_queryCache[cacheKey])) {
+        return m_queryCache[cacheKey].result;
+    }
+    
     qDebug() << "[DEBUG] searchParameters: query=" << query << ", formatFilter=" << formatFilter;
     
     QSqlQuery q(m_db);
 
-    // 构建格式过滤条件
     bool hasFormatFilter = !formatFilter.isEmpty() && formatFilter.toLower() != "all";
     QString formatCondition;
     if (hasFormatFilter) {
@@ -590,7 +627,6 @@ QVariantList DatabaseManager::searchParameters(const QString& query, int mode, c
         QString qstr = query.trimmed();
         if (qstr.isEmpty()) return out;
 
-        // 对输入进行分词，并对每个 token 使用前缀匹配（token*），以便前缀搜索生效。
         QStringList tokens = qstr.split(QRegExp("\\s+"), QString::SkipEmptyParts);
         bool useLikeFallback = false;
         for (const QString &t : tokens) {
@@ -620,14 +656,20 @@ QVariantList DatabaseManager::searchParameters(const QString& query, int mode, c
                     m["format"] = q.value(5).toString();
                     out.append(m);
                 }
-                if (found) return out;
+                if (found) {
+                    QueryCache cache;
+                    cache.key = cacheKey;
+                    cache.result = out;
+                    cache.timestamp = QDateTime::currentMSecsSinceEpoch();
+                    m_queryCache[cacheKey] = cache;
+                    cleanOldCache();
+                    return out;
+                }
                 useLikeFallback = true;
             }
         }
     }
 
-    // LIKE 模糊匹配回退逻辑
-    // Escape LIKE wildcards in user input
     QString escaped = query;
     escaped.replace(QLatin1String("\\"), QLatin1String("\\\\"));
     escaped.replace(QLatin1String("%"), QLatin1String("\\%"));
@@ -648,6 +690,14 @@ QVariantList DatabaseManager::searchParameters(const QString& query, int mode, c
         m["format"] = q.value(5).toString();
         out.append(m);
     }
+    
+    QueryCache cache;
+    cache.key = cacheKey;
+    cache.result = out;
+    cache.timestamp = QDateTime::currentMSecsSinceEpoch();
+    m_queryCache[cacheKey] = cache;
+    cleanOldCache();
+    
     return out;
 }
 
@@ -1112,4 +1162,38 @@ int DatabaseManager::getTemplateFieldCount(const QString& templateFilePath)
         return q.value(0).toInt();
     }
     return 0;
+}
+
+void DatabaseManager::importFilesAsync(const QStringList& filePaths, const QString& device)
+{
+    QtConcurrent::run([this, filePaths, device]() {
+        int successCount = 0;
+        int failCount = 0;
+        int total = filePaths.size();
+        
+        for (int i = 0; i < filePaths.size(); ++i) {
+            const QString& filePath = filePaths[i];
+            emit importProgress(i + 1, total, filePath);
+            
+            bool success = false;
+            QString suffix = QFileInfo(filePath).suffix().toLower();
+            
+            if (suffix == "ini") {
+                success = importIniFile(filePath, device);
+            } else if (suffix == "json") {
+                success = importJsonFile(filePath, device);
+            } else if (suffix == "xml") {
+                success = importXmlFile(filePath, device);
+            }
+            
+            if (success) {
+                successCount++;
+            } else {
+                failCount++;
+            }
+        }
+        
+        invalidateCache();
+        emit importFinished(successCount, failCount);
+    });
 }

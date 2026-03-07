@@ -1,4 +1,4 @@
-QT += core gui quick quickcontrols2 concurrent widgets sql
+QT += core gui quick quickcontrols2 concurrent widgets sql network
 
 CONFIG += c++11
 
@@ -24,7 +24,12 @@ SOURCES += main.cpp \
            src/viewmodel/searchviewmodel.cpp \
            src/viewmodel/databasemanager.cpp \
            src/aiservice.cpp \
-           src/globalhotkey.cpp
+           src/globalhotkey.cpp \
+           src/filewatcher.cpp \
+           src/configdiff.cpp \
+           src/batchoperation.cpp \
+           src/aiclient.cpp \
+           src/configvalidator.cpp
 
 # 头文件
 HEADERS += include/configentry.h \
@@ -33,7 +38,12 @@ HEADERS += include/configentry.h \
            include/searchviewmodel.h \
            include/databasemanager.h \
            include/aiservice.h \
-           include/globalhotkey.h
+           include/globalhotkey.h \
+           include/filewatcher.h \
+           include/configdiff.h \
+           include/batchoperation.h \
+           include/aiclient.h \
+           include/configvalidator.h
 
 # 资源文件
 RESOURCES += res/qml.qrc

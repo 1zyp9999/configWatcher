@@ -293,6 +293,11 @@ private:
 private:
     bool m_enabled = true;
     bool m_learningEnabled = true;
+    bool m_synonymsLoaded = false;
+    bool m_domainKeywordsLoaded = false;
+    
+    void ensureSynonymsLoaded();
+    void ensureDomainKeywordsLoaded();
     
     // 同义词词典：key -> [synonym1, synonym2, ...]
     QMap<QString, QStringList> m_synonyms;
@@ -316,6 +321,11 @@ private:
     
     // 领域关键词映射（用于意图识别）
     QMap<QString, QStringList> m_domainKeywords;
+    
+    // 反向索引：关键词 -> 领域
+    QMap<QString, QString> m_keywordToDomain;
+    bool m_reverseIndexBuilt = false;
+    void buildReverseIndex();
     
     // 文件路径
     QString m_userDictPath;

@@ -13,16 +13,42 @@
 
 AiService::AiService(QObject *parent) : QObject(parent)
 {
-    // 初始化文件路径
     QString dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     QDir().mkpath(dataDir);
     m_userDictPath = dataDir + "/user_dictionary.json";
     m_searchHistoryPath = dataDir + "/search_history.json";
     
-    initSynonymDictionary();
-    initDomainKeywords();
     loadUserDictionary();
     loadSearchHistory();
+}
+
+void AiService::ensureSynonymsLoaded()
+{
+    if (m_synonymsLoaded) return;
+    initSynonymDictionary();
+    m_synonymsLoaded = true;
+}
+
+void AiService::ensureDomainKeywordsLoaded()
+{
+    if (m_domainKeywordsLoaded) return;
+    initDomainKeywords();
+    m_domainKeywordsLoaded = true;
+}
+
+void AiService::buildReverseIndex()
+{
+    if (m_reverseIndexBuilt) return;
+    ensureDomainKeywordsLoaded();
+    
+    for (auto it = m_domainKeywords.constBegin(); it != m_domainKeywords.constEnd(); ++it) {
+        const QString& domain = it.key();
+        const QStringList& keywords = it.value();
+        for (const QString& kw : keywords) {
+            m_keywordToDomain[kw.toLower()] = domain;
+        }
+    }
+    m_reverseIndexBuilt = true;
 }
 
 AiService::~AiService()
@@ -400,6 +426,9 @@ QString AiService::analyzeIntent(const QString& query)
         return "unknown";
     }
     
+    ensureSynonymsLoaded();
+    ensureDomainKeywordsLoaded();
+    
     QString q = query.trimmed().toLower();
     
     // ===== 规则 1: 包含明确的值特征 =====
@@ -427,15 +456,11 @@ QString AiService::analyzeIntent(const QString& query)
         }
     }
     
-    // ===== 规则 4: 匹配领域关键词 =====
-    for (auto it = m_domainKeywords.constBegin(); it != m_domainKeywords.constEnd(); ++it) {
+    // ===== 规则 4: 使用反向索引快速匹配领域关键词 =====
+    buildReverseIndex();
+    for (auto it = m_keywordToDomain.constBegin(); it != m_keywordToDomain.constEnd(); ++it) {
         if (q.contains(it.key())) {
-            return "search_key";  // 用户在搜索特定领域的配置项
-        }
-        for (const QString& kw : it.value()) {
-            if (q.contains(kw)) {
-                return "search_key";
-            }
+            return "search_key";
         }
     }
     
@@ -554,6 +579,9 @@ QVariantList AiService::extractEntities(const QString& query)
 
 QStringList AiService::expandKeywords(const QString& query, int maxResults)
 {
+    ensureSynonymsLoaded();
+    ensureDomainKeywordsLoaded();
+    
     QStringList expanded;
     QString q = query.trimmed().toLower();
     

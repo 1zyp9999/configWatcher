@@ -24,7 +24,6 @@ class SearchViewModel : public QObject
     Q_PROPERTY(int loadProgress READ loadProgress NOTIFY loadProgressChanged)
     Q_PROPERTY(int keyCount READ keyCount NOTIFY keyCountChanged)
     
-    // AI 相关属性
     Q_PROPERTY(bool aiEnabled READ aiEnabled WRITE setAiEnabled NOTIFY aiEnabledChanged)
     Q_PROPERTY(QString aiIntent READ aiIntent NOTIFY aiIntentChanged)
     Q_PROPERTY(double aiConfidence READ aiConfidence NOTIFY aiConfidenceChanged)
@@ -50,7 +49,6 @@ public:
 
     int keyCount() const { return m_allKeys.size(); }
     
-    // AI 相关方法
     bool aiEnabled() const { return m_aiEnabled; }
     void setAiEnabled(bool enabled);
     
@@ -64,6 +62,7 @@ public:
 
     Q_INVOKABLE QString selectDirectory();
     Q_INVOKABLE void loadConfigFiles(const QStringList& filePaths);
+    Q_INVOKABLE void loadConfigFilesAsync(const QStringList& filePaths);
     Q_INVOKABLE void openConfigFile(const QString& filePath);
     Q_INVOKABLE QString pickConfigFile();
     Q_INVOKABLE QVariantList readConfigFile(const QString& filePath);
@@ -74,24 +73,20 @@ public:
     Q_INVOKABLE QVariantList suggestClusters(const QString &prefix, int maxClusters = 8, int maxPerCluster = 6);
     Q_INVOKABLE void requestSuggestClusters(const QString &prefix, int maxClusters = 8, int maxPerCluster = 6);
     
-    // AI 增强搜索方法
     Q_INVOKABLE void analyzeSearchQuery(const QString& query);
     Q_INVOKABLE void applyAiSuggestion(const QString& suggestion);
     Q_INVOKABLE void expandSearchWithAi(const QString& query);
     Q_INVOKABLE QString getAiExplanation(const QString& query);
     
-    // 用户词典方法
     Q_INVOKABLE void addUserTerm(const QString& key, const QString& chinese, const QVariantList& synonyms);
     Q_INVOKABLE void removeUserTerm(const QString& key);
     Q_INVOKABLE QVariantList getUserTerms() const;
     
-    // 搜索历史方法
     Q_INVOKABLE void recordSearch(const QString& query, int resultCount, bool selected);
     Q_INVOKABLE QVariantList getSearchHistory(int limit);
     Q_INVOKABLE void clearSearchHistory();
     Q_INVOKABLE QVariantList getHotSearches(int limit);
     
-    // 设置
     Q_INVOKABLE void setLearningEnabled(bool enabled);
     Q_INVOKABLE bool isLearningEnabled() const;
 
@@ -125,18 +120,25 @@ private:
     DatabaseManager* m_dbManager = nullptr;
     AiService* m_aiService = nullptr;
     
-    // suggestion cache
     QStringList m_allKeys;
     bool m_keyIndexBuilt = false;
     
-    // AI 状态
+    struct TfidfCache {
+        QString prefixHash;
+        qint64 timestamp;
+        QVariantList clusters;
+        bool isValid = false;
+    };
+    TfidfCache m_tfidfCache;
+    qint64 m_tfidfCacheTtl = 30000;
+    
     bool m_aiEnabled = true;
     QString m_aiIntent;
     double m_aiConfidence = 0.0;
     QVariantList m_aiSuggestions;
     QString m_aiExplanation;
     bool m_learningEnabled = true;
-    QString m_formatFilter;  // 文件类型过滤: "ini", "json", "xml", "" (all)
+    QString m_formatFilter;
 };
 
 #endif // SEARCHVIEWMODEL_H
