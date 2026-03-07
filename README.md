@@ -120,8 +120,8 @@ ConfigWatcher/
 
 ## 版本信息
 
-- **当前版本**: v1.2.9
-- **作者**: jack zhang
+- **当前版本**: v1.3.0
+- **作者**: Jack Zhang
 - **构建时间**: 见程序上下文属性 `APP_BUILD_TIME`
 
 ## 许可证
