@@ -20,6 +20,8 @@ class AiClient : public QObject
     Q_PROPERTY(QString baseUrl READ baseUrl WRITE setBaseUrl NOTIFY baseUrlChanged)
     Q_PROPERTY(bool isProcessing READ isProcessing NOTIFY processingChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY errorOccurred)
+    Q_PROPERTY(double temperature READ temperature WRITE setTemperature NOTIFY temperatureChanged)
+    Q_PROPERTY(int maxTokens READ maxTokens WRITE setMaxTokens NOTIFY maxTokensChanged)
 
 public:
     enum Provider {
@@ -52,6 +54,12 @@ public:
 
     bool isProcessing() const { return m_isProcessing; }
     QString lastError() const { return m_lastError; }
+    
+    double temperature() const { return m_temperature; }
+    void setTemperature(double temp);
+    
+    int maxTokens() const { return m_maxTokens; }
+    void setMaxTokens(int tokens);
 
     Q_INVOKABLE void analyzeIntent(const QString& query);
     Q_INVOKABLE void expandKeywords(const QString& query);
@@ -76,6 +84,8 @@ signals:
     void baseUrlChanged(const QString& url);
     void processingChanged(bool processing);
     void errorOccurred(const QString& error);
+    void temperatureChanged(double temp);
+    void maxTokensChanged(int tokens);
     
     void intentAnalyzed(const QString& intent, double confidence, const QString& explanation);
     void keywordsExpanded(const QVariantList& keywords);

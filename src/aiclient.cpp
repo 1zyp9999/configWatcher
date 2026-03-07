@@ -98,6 +98,22 @@ void AiClient::setBaseUrl(const QString& url)
     }
 }
 
+void AiClient::setTemperature(double temp)
+{
+    if (!qFuzzyCompare(m_temperature, temp)) {
+        m_temperature = temp;
+        emit temperatureChanged(temp);
+    }
+}
+
+void AiClient::setMaxTokens(int tokens)
+{
+    if (m_maxTokens != tokens) {
+        m_maxTokens = tokens;
+        emit maxTokensChanged(tokens);
+    }
+}
+
 void AiClient::analyzeIntent(const QString& query)
 {
     if (!m_enabled || m_apiKey.isEmpty()) {
