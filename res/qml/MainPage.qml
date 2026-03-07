@@ -15,6 +15,7 @@ Item {
     property string buildTime: "未知"
     property string appAuthor: ""
     property bool aboutVisible: false
+    property bool helpVisible: false
     property bool translationsVisible: false
     property bool suggestionsVisible: false
     property bool settingsVisible: false
@@ -171,6 +172,7 @@ Item {
                                 onClicked: {
                                     if (label === qsTr("关于")) mainPage.aboutVisible = true
                                     else if (label === qsTr("修改")) mainPage.settingsVisible = true
+                                    else if (label === qsTr("帮助")) mainPage.helpVisible = true
                                     else console.log("点击菜单：", label)
                                 }
                                 onEntered: menuItemRect.color = surfaceColor
@@ -1212,6 +1214,435 @@ Item {
                         Layout.preferredHeight: 36
                         background: Rectangle { radius: 10; color: primaryColor }
                         contentItem: Text { text: parent.text; color: "#FFFFFF"; anchors.fill: parent; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; font.bold: true }
+                    }
+                }
+            }
+        }
+    }
+
+    // ===== 帮助说明弹窗 =====
+    Rectangle {
+        id: helpOverlay
+        anchors.fill: parent
+        color: "#000000AA"
+        visible: mainPage.helpVisible
+        z: 1001
+        MouseArea { anchors.fill: parent; onClicked: mainPage.helpVisible = false }
+
+        Rectangle {
+            id: helpBox
+            width: Math.min(parent.width - 80, 900)
+            height: Math.min(parent.height - 120, 650)
+            anchors.centerIn: parent
+            radius: 16
+            color: cardColor
+            border.color: borderColor
+            border.width: 1
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 24
+                spacing: 16
+
+                // 标题栏
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 12
+
+                    // 图标
+                    Rectangle {
+                        width: 40; height: 40; radius: 20
+                        color: primaryColor
+                        Layout.alignment: Qt.AlignVCenter
+                        Text {
+                            text: "❓"
+                            anchors.centerIn: parent
+                            font.pointSize: 18
+                        }
+                    }
+
+                    Text {
+                        text: "功能使用说明"
+                        font.pointSize: 18
+                        font.bold: true
+                        color: textPrimary
+                        Layout.fillWidth: true
+                    }
+
+                    // 关闭按钮
+                    Rectangle {
+                        width: 32; height: 32; radius: 16
+                        color: closeMouse.containsMouse ? "#3b1c1c" : "transparent"
+                        Layout.alignment: Qt.AlignVCenter
+                        MouseArea {
+                            id: closeMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: mainPage.helpVisible = false
+                        }
+                        Text {
+                            text: "✕"
+                            anchors.centerIn: parent
+                            color: closeMouse.containsMouse ? "#ef4444" : "#64748b"
+                            font.pointSize: 14
+                        }
+                    }
+                }
+
+                // 分割线
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 1
+                    color: borderColor
+                }
+
+                // 内容区域（可滚动）
+                ScrollView {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    clip: true
+
+                    ScrollBar.vertical.policy: ScrollBar.AsNeeded
+
+                    ColumnLayout {
+                        width: helpBox.width - 48
+                        spacing: 20
+
+                        // ===== 1. 配置搜索功能 =====
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+
+                            RowLayout {
+                                spacing: 8
+                                Rectangle {
+                                    width: 28; height: 28; radius: 6
+                                    color: "#1e3a5f"
+                                    Text { text: "🔍"; anchors.centerIn: parent; font.pointSize: 14 }
+                                }
+                                Text {
+                                    text: "1. 配置搜索"
+                                    font.pointSize: 14
+                                    font.bold: true
+                                    color: textPrimary
+                                }
+                            }
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                color: surfaceColor
+                                radius: 8
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: 12
+                                    spacing: 6
+                                    Text { text: "• 在搜索框中输入字段名、参数值或中文描述，支持模糊搜索和精准搜索两种模式"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                    Text { text: "• 支持搜索 .ini、.json、.xml 格式的配置文件"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                    Text { text: "• 点击搜索结果可直接查看配置详情，双击可打开对应配置文件"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                }
+                            }
+                        }
+
+                        // ===== 2. 快捷入口 =====
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+
+                            RowLayout {
+                                spacing: 8
+                                Rectangle {
+                                    width: 28; height: 28; radius: 6
+                                    color: "#1e3a5f"
+                                    Text { text: "⚡"; anchors.centerIn: parent; font.pointSize: 14 }
+                                }
+                                Text {
+                                    text: "2. 快捷入口"
+                                    font.pointSize: 14
+                                    font.bold: true
+                                    color: textPrimary
+                                }
+                            }
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                color: surfaceColor
+                                radius: 8
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: 12
+                                    spacing: 6
+                                    Text { text: "• 💡 光源配置 - 快速访问光源相关配置"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                    Text { text: "• 📷 相机配置 - 快速访问相机相关配置"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                    Text { text: "• 📽️ 投影仪配置 - 快速访问投影仪相关配置"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                    Text { text: "• 🎯 标定配置 - 快速访问标定相关配置"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                    Text { text: "• 🔧 硬件配置 - 快速访问硬件相关配置"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                    Text { text: "• 👤 用户配置 - 快速访问用户相关配置"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                }
+                            }
+                        }
+
+                        // ===== 3. 筛选功能 =====
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+
+                            RowLayout {
+                                spacing: 8
+                                Rectangle {
+                                    width: 28; height: 28; radius: 6
+                                    color: "#1e3a5f"
+                                    Text { text: "🎚️"; anchors.centerIn: parent; font.pointSize: 14 }
+                                }
+                                Text {
+                                    text: "3. 筛选功能"
+                                    font.pointSize: 14
+                                    font.bold: true
+                                    color: textPrimary
+                                }
+                            }
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                color: surfaceColor
+                                radius: 8
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: 12
+                                    spacing: 6
+                                    Text { text: "• 类型下拉框 - 按配置类型筛选（相机/投影/用户配置/调整配置/hardware 配置/标定配置）"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                    Text { text: "• 模式下拉框 - 切换模糊搜索或精准搜索模式"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                    Text { text: "• 格式下拉框 - 按文件格式筛选（全部/ini/json/xml）"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                }
+                            }
+                        }
+
+                        // ===== 4. AI 智能搜索 =====
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+
+                            RowLayout {
+                                spacing: 8
+                                Rectangle {
+                                    width: 28; height: 28; radius: 6
+                                    color: "#1e3a5f"
+                                    Text { text: "🤖"; anchors.centerIn: parent; font.pointSize: 14 }
+                                }
+                                Text {
+                                    text: "4. AI 智能搜索"
+                                    font.pointSize: 14
+                                    font.bold: true
+                                    color: textPrimary
+                                }
+                            }
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                color: surfaceColor
+                                radius: 8
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: 12
+                                    spacing: 6
+                                    Text { text: "• AI 增强模式可智能分析搜索意图，提供更精准的结果"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                    Text { text: "• 支持中文语义理解，自动识别配置项的中文别名"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                    Text { text: "• AI 建议词功能：点击推荐标签可快速搜索"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                    Text { text: "• 在 AI 管理中可配置 AI 服务和同义词词典"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                }
+                            }
+                        }
+
+                        // ===== 5. 文件操作 =====
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+
+                            RowLayout {
+                                spacing: 8
+                                Rectangle {
+                                    width: 28; height: 28; radius: 6
+                                    color: "#1e3a5f"
+                                    Text { text: "📁"; anchors.centerIn: parent; font.pointSize: 14 }
+                                }
+                                Text {
+                                    text: "5. 文件操作"
+                                    font.pointSize: 14
+                                    font.bold: true
+                                    color: textPrimary
+                                }
+                            }
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                color: surfaceColor
+                                radius: 8
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: 12
+                                    spacing: 6
+                                    Text { text: "• 📁 导入模板 - 从现有配置文件导入模板"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                    Text { text: "• 支持导出搜索结果和配置数据"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                    Text { text: "• 支持配置文件的增删改查操作"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                }
+                            }
+                        }
+
+                        // ===== 6. 窗口模式 =====
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+
+                            RowLayout {
+                                spacing: 8
+                                Rectangle {
+                                    width: 28; height: 28; radius: 6
+                                    color: "#1e3a5f"
+                                    Text { text: "🪟"; anchors.centerIn: parent; font.pointSize: 14 }
+                                }
+                                Text {
+                                    text: "6. 窗口模式"
+                                    font.pointSize: 14
+                                    font.bold: true
+                                    color: textPrimary
+                                }
+                            }
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                color: surfaceColor
+                                radius: 8
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: 12
+                                    spacing: 6
+                                    Text { text: "• 完整模式 - 提供全部功能和详细视图"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                    Text { text: "• 精简模式 - 类似 Spotlight 的简洁搜索条，支持快速搜索"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                    Text { text: "• 快捷键 Ctrl+Alt+M 可快速切换窗口模式"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                    Text { text: "• 支持系统托盘集成，可后台运行"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                }
+                            }
+                        }
+
+                        // ===== 7. 数据库管理 =====
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+
+                            RowLayout {
+                                spacing: 8
+                                Rectangle {
+                                    width: 28; height: 28; radius: 6
+                                    color: "#1e3a5f"
+                                    Text { text: "🗄️"; anchors.centerIn: parent; font.pointSize: 14 }
+                                }
+                                Text {
+                                    text: "7. 数据库管理"
+                                    font.pointSize: 14
+                                    font.bold: true
+                                    color: textPrimary
+                                }
+                            }
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                color: surfaceColor
+                                radius: 8
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: 12
+                                    spacing: 6
+                                    Text { text: "• 自动导入配置文件到本地数据库 (configwatcher.db)"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                    Text { text: "• 支持手动刷新数据库"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                    Text { text: "• 数据库存储路径：程序运行目录"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                }
+                            }
+                        }
+
+                        // ===== 8. 其他功能 =====
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+
+                            RowLayout {
+                                spacing: 8
+                                Rectangle {
+                                    width: 28; height: 28; radius: 6
+                                    color: "#1e3a5f"
+                                    Text { text: "📋"; anchors.centerIn: parent; font.pointSize: 14 }
+                                }
+                                Text {
+                                    text: "8. 其他功能"
+                                    font.pointSize: 14
+                                    font.bold: true
+                                    color: textPrimary
+                                }
+                            }
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                color: surfaceColor
+                                radius: 8
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: 12
+                                    spacing: 6
+                                    Text { text: "• 系统菜单 - 访问系统设置和偏好"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                    Text { text: "• 修改菜单 - 进行配置修改操作"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                    Text { text: "• 帮助菜单 - 查看本使用说明"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                    Text { text: "• 关于菜单 - 查看软件版本和作者信息"; color: textSecondary; font.pointSize: 12; wrapMode: Text.WordWrap; width: parent.width }
+                                }
+                            }
+                        }
+
+                        // 底部提示
+                        Rectangle {
+                            Layout.fillWidth: true
+                            color: "#0d1a2e"
+                            radius: 8
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.margins: 12
+                                spacing: 8
+                                Text { text: "💡"; font.pointSize: 14 }
+                                Text {
+                                    text: "提示：按 Esc 或点击遮罩区域可关闭本窗口"
+                                    color: textMuted
+                                    font.pointSize: 11
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 底部分割线
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 1
+                    color: borderColor
+                }
+
+                // 底部按钮
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 12
+                    Layout.alignment: Qt.AlignHCenter
+
+                    Button {
+                        text: "关闭"
+                        onClicked: mainPage.helpVisible = false
+                        Layout.preferredWidth: 100
+                        Layout.preferredHeight: 38
+                        background: Rectangle { radius: 10; color: primaryColor }
+                        contentItem: Text {
+                            text: parent.text
+                            color: "#FFFFFF"
+                            anchors.fill: parent
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            font.bold: true
+                            font.pointSize: 12
+                        }
                     }
                 }
             }

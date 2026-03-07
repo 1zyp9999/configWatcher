@@ -18,8 +18,6 @@ ApplicationWindow {
         anchors.fill: parent
         initialItem: LoginPage {
             stackView: mainStackView
-            width: rootWindow.width
-            height: rootWindow.height
         }
     }
 }

@@ -5,11 +5,9 @@ import ConfigWatcher 1.0
 
 Item {
     id: loginPage
-    property int defaultWidth: 800
-    property int defaultHeight: 600
-    width: (parent && parent.width) ? parent.width : defaultWidth
-    height: (parent && parent.height) ? parent.height : defaultHeight
-    property StackView stackView: null
+    property var stackView: null
+    width: parent ? parent.width : 800
+    height: parent ? parent.height : 600
 
     // ========== 全屏背景：深色渐变 ==========
     Rectangle {
@@ -282,22 +280,36 @@ Item {
                     verticalAlignment: Text.AlignVCenter
                 }
                 onClicked: {
-                    console.log("登录按钮被点击");
+                    console.log("=== 登录调试信息 ===");
                     console.log("用户名:", usernameField.text);
                     console.log("密码:", passwordField.text);
-                    console.log("stackView:", stackView);
+                    console.log("stackView 对象:", stackView);
+                    console.log("stackView 类型:", typeof stackView);
+                    
                     var result = loginVM.checkLogin();
                     console.log("checkLogin 结果:", result);
-                    if (result && stackView) {
-                        console.log("准备跳转到主页面...");
-                        try {
-                            stackView.push("qrc:/qml/MainPage.qml");
-                            console.log("跳转成功");
-                        } catch(e) {
-                            console.log("跳转失败:", e);
+                    
+                    if (result) {
+                        console.log("登录验证成功");
+                        if (stackView) {
+                            console.log("stackView 存在，准备 push MainPage");
+                            try {
+                                var component = Qt.createComponent("qrc:/qml/MainPage.qml");
+                                console.log("组件创建状态:", component.status);
+                                if (component.status === Component.Ready) {
+                                    stackView.push(component);
+                                    console.log("push 完成");
+                                } else {
+                                    console.log("组件创建失败:", component.errorString());
+                                }
+                            } catch(e) {
+                                console.log("异常:", e);
+                            }
+                        } else {
+                            console.log("stackView 为空!");
                         }
                     } else {
-                        console.log("登录失败或 stackView 为空");
+                        console.log("登录验证失败");
                     }
                 }
             }
