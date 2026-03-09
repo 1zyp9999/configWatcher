@@ -14,6 +14,10 @@ OBJECTS_DIR = ./obj
 MOC_DIR = ./moc
 RCC_DIR = ./rcc
 
+# 测试子项目
+SUBDIRS += tests
+tests.depends = .
+
 # 头文件路径
 INCLUDEPATH += ./include ./src/model ./src/viewmodel
 

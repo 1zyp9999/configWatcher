@@ -1,0 +1,14 @@
+{
+    "application": {
+        "name": "ConfigWatcher",
+        "version": "2.0.0"
+    },
+    "settings": {
+        "theme": "dark",
+        "language": "zh_CN"
+    },
+    "database": {
+        "host": "localhost",
+        "port": 5432
+    }
+}

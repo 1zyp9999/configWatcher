@@ -1,0 +1,43 @@
+{
+    "version": "1.0",
+    "rules": [
+        {
+            "key": "ExposureTime",
+            "type": "int",
+            "min": 100,
+            "max": 10000000,
+            "required": false,
+            "description": "曝光时间（微秒）"
+        },
+        {
+            "key": "Gain",
+            "type": "float",
+            "min": 0,
+            "max": 48,
+            "required": false,
+            "description": "增益（dB）"
+        },
+        {
+            "key": "FrameRate",
+            "type": "int",
+            "min": 1,
+            "max": 200,
+            "required": false,
+            "description": "帧率（fps）"
+        },
+        {
+            "key": "IPAddress",
+            "type": "string",
+            "regex": "^(\\d{1,3}\\.){3}\\d{1,3}$",
+            "required": false,
+            "description": "IP 地址"
+        },
+        {
+            "key": "TriggerMode",
+            "type": "string",
+            "allowedValues": ["On", "Off", "Auto"],
+            "required": false,
+            "description": "触发模式"
+        }
+    ]
+}

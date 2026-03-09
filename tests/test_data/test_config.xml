@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <appSettings>
+        <add key="Setting1" value="Value1"/>
+        <add key="Setting2" value="Value2"/>
+    </appSettings>
+    <connectionStrings>
+        <add name="Default" connectionString="Server=localhost"/>
+    </connectionStrings>
+</configuration>
